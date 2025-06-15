@@ -1,14 +1,27 @@
+use std::cmp::Ordering;
+use rand::distributions::{Distribution, Uniform};
+// Note: Use rand_distr crate for Normal distribution
+use rand_distr::Normal;
 use std::collections::VecDeque;
-use rand::distributions::{Distribution, Uniform, Normal};
 use rand::rngs::ThreadRng;
+use crate::SimulationConfig;
 
-// Bauteil, das durch das System läuft
-#[derive(Debug)]
-struct Part {
-    id: usize,
-    entry_time: f64,
-    stage_times: Vec<f64>,
+#[derive(Clone, Debug)]
+pub struct Part {
+    pub id: usize,
+    pub entry_time: f64,
+    pub stage_times: Vec<f64>,
 }
+
+impl PartialEq for Part {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Part {}
+
+// The rest of your Part implementation
 
 // Stationen im Produktionsprozess
 enum ProcessStage {

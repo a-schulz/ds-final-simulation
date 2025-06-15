@@ -1,4 +1,7 @@
-enum Event {
+use crate::model::part::Part;
+
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Event {
     SMDFinished(Part),
     LotbadBatchFinished(Vec<Part>),
     MontageFinished(Part),
@@ -6,22 +9,26 @@ enum Event {
     SimulationEnd,
 }
 
-struct EventQueue {
-    events: Vec<(f64, Event)>,
+use ordered_float::OrderedFloat;
+
+pub struct EventQueue {
+    events: std::collections::BinaryHeap<(std::cmp::Reverse<OrderedFloat<f64>>, Event)>,
 }
 
 impl EventQueue {
-    fn new() -> Self {
-        Self { events: Vec::new() }
+    pub fn new() -> Self {
+        Self { events: std::collections::BinaryHeap::new() }
     }
 
-    fn schedule(&mut self, time: f64, event: Event) {
-        let position = self.events.binary_search_by(|(t, _)| t.partial_cmp(&time).unwrap())
-            .unwrap_or_else(|pos| pos);
-        self.events.insert(position, (time, event));
+    pub fn add_event(&mut self, time: f64, event: Event) {
+        self.events.push((std::cmp::Reverse(OrderedFloat(time)), event));
     }
 
-    fn next_event(&mut self) -> Option<(f64, Event)> {
-        self.events.pop()
+    pub fn next_event(&mut self) -> Option<(f64, Event)> {
+        if let Some((std::cmp::Reverse(time), event)) = self.events.pop() {
+            Some((time.into_inner(), event))
+        } else {
+            None
+        }
     }
 }

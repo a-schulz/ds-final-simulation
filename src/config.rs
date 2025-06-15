@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct SimulationConfig {
     // Stationszeiten
     pub smd_time_minutes: f64,
