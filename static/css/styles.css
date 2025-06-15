@@ -1,0 +1,148 @@
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2ecc71;
+    --text-color: #333;
+    --light-bg: #f9f9f9;
+    --card-bg: #fff;
+    --border-color: #ddd;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--text-color);
+    background-color: var(--light-bg);
+}
+
+header {
+    background-color: var(--primary-color);
+    color: white;
+    text-align: center;
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+}
+
+nav {
+    margin-top: 0.5rem;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+section {
+    margin-bottom: 2rem;
+}
+
+h2 {
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+h3 {
+    margin-bottom: 0.5rem;
+    color: var(--secondary-color);
+}
+
+.config-section, .run-section, .results-overview, .results-detail, .stats-card, .no-results {
+    background-color: var(--card-bg);
+    border-radius: 5px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.config-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-field {
+    margin-bottom: 0.8rem;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.form-field label {
+    flex: 1;
+    min-width: 200px;
+    margin-right: 1rem;
+}
+
+.form-field input {
+    flex: 2;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+}
+
+.buttons {
+    margin-top: 1rem;
+    text-align: right;
+}
+
+button, .button {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 0.7rem 1.2rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    text-decoration: none;
+    display: inline-block;
+}
+
+button:hover, .button:hover {
+    background-color: #2980b9;
+}
+
+.stats-group {
+    margin-bottom: 1.5rem;
+}
+
+.stats-card {
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    border-radius: 5px;
+}
+
+.stats-card p {
+    margin-bottom: 0.5rem;
+}
+
+.results-link {
+    margin-top: 1rem;
+}
+
+.results-link a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.results-link a:hover {
+    text-decoration: underline;
+}
+
+footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding: 1rem 0;
+    color: #666;
+    border-top: 1px solid var(--border-color);
+}

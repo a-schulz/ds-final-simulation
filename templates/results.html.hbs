@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulationsergebnisse - SMD-Fertigung</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Simulationsergebnisse</h1>
+        <nav>
+            <a href="/">Zurück zur Konfiguration</a>
+        </nav>
+    </header>
+
+    <main>
+        {{#if has_results}}
+        <section class="results-overview">
+            <h2>Überblick</h2>
+            <div class="stats-card">
+                <p><strong>Abgeschlossene Simulationsläufe:</strong> {{stats.runs_completed}}</p>
+                <p><strong>Fertiggestellte Teile:</strong> {{stats.total_parts_completed}}</p>
+            </div>
+        </section>
+
+        <section class="results-detail">
+            <h2>Detaillierte Ergebnisse</h2>
+
+            <div class="stats-group">
+                <h3>Durchlaufzeiten</h3>
+                <div class="stats-card">
+                    <p><strong>Durchschnitt:</strong> {{stats.avg_throughput_time}} min</p>
+                    <p><strong>Maximum:</strong> {{stats.max_throughput_time}} min</p>
+                    <p><strong>Minimum:</strong> {{stats.min_throughput_time}} min</p>
+                </div>
+            </div>
+
+            <div class="stats-group">
+                <h3>Pufferauslastung</h3>
+                <div class="stats-card">
+                    <p><strong>P1 (SMD → Lotbad):</strong> {{stats.avg_p1_utilization}}%</p>
+                    <p><strong>P2 (Lotbad → Montage):</strong> {{stats.avg_p2_utilization}}%</p>
+                    <p><strong>P3 (Montage → QC):</strong> {{stats.avg_p3_utilization}}%</p>
+                </div>
+            </div>
+
+            <div class="stats-group">
+                <h3>Stationsauslastung</h3>
+                <div class="stats-card">
+                    <p><strong>Montageplätze:</strong> {{stats.avg_montage_utilization}}%</p>
+                    <p><strong>QC-Plätze:</strong> {{stats.avg_qc_utilization}}%</p>
+                </div>
+            </div>
+        </section>
+        {{else}}
+        <section class="no-results">
+            <p>Keine Simulationsergebnisse verfügbar. Führen Sie zuerst eine Simulation durch.</p>
+            <a href="/" class="button">Zurück zur Simulation</a>
+        </section>
+        {{/if}}
+    </main>
+
+    <footer>
+        <p>&copy; 2023 SMD-Fertigungssimulation</p>
+    </footer>
+</body>
+</html>
