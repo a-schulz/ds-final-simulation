@@ -92,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         test_mboxes.push(Mailbox::new());
     }
     
-    let stats_mbox = Mailbox::new();
+    // let stats_mbox = Mailbox::new();
     
     // Connect models
     // Source -> SMD Machine
@@ -122,10 +122,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         test_buffer.output.connect(QualityControl::input, test_mbox);
     }
     
-    // Test Stations -> Statistics Collector
-    for test_station in test_stations.iter_mut() {
-        test_station.output.connect(StatisticsCollector::input, &stats_mbox);
-    }
+    // // Test Stations -> Statistics Collector
+    // for test_station in test_stations.iter_mut() {
+    //     test_station.output.connect(StatisticsCollector::input, &stats_mbox);
+    // }
     
     // Create simulation
     let t0 = MonotonicTime::EPOCH;
@@ -165,36 +165,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // First step the simulation to trigger model initialization
     simulation.step()?;
-    
-    // Schedule first arrival manually using the scheduler
-    let source_address = Address::from_name(source_name);
-    scheduler.schedule_event(
-        Duration::ZERO,
-        ProductSource::start_generation,
-        (),
-        source_address
-    )?;
-    
+
     println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
     
     // Run the simulation until the specified time
     simulation.step_until(t0 + Duration::from_secs(config.simulation.simulation_time * 60))?;
-    
-    // Print statistics
-    // Access the statistics model using process_query
-    // We'll construct an address from the name
-    // let stats_address = Address::from_name(stats_name);
-
-    // Process a query to the statistics model to get the data
-    // let stats_result = simulation.process_query(
-    //     StatisticsCollector::get_statistics,
-    //     (),
-    //     stats_address
-    // )?;
-
-    // Print statistics
-    println!("Simulation statistics:");
-    println!("{:?}", stats_result);
 
     println!("Simulation completed successfully");
     
