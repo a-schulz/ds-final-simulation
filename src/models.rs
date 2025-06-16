@@ -259,6 +259,12 @@ impl ProductSource {
         self.schedule_next_arrival(cx);
     }
 
+    // Public method that can be called by the scheduler
+    pub async fn start_generation(&mut self, _: (), cx: &mut Context<Self>) {
+        // Delegate to the private generate_product method
+        self.generate_product((), cx).await;
+    }
+
     fn schedule_next_arrival(&mut self, cx: &mut Context<Self>) {
         // Exponentially distributed inter-arrival times (Poisson process)
         let interval = -self.arrival_rate.recip() * self.rng.gen::<f64>().ln();

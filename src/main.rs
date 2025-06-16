@@ -148,20 +148,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize and run simulation
     let (mut simulation, scheduler) = sim_init.init(t0)?;
     
-    // We need to modify the ProductSource::start method to not require a context parameter
-    // since we can't pass it directly through process_event
-    let source_id = scheduler.id_of("source").unwrap();
+    // Get addresses of models using the scheduler
+    let source_address = scheduler.get_address::<ProductSource>("source")
+        .expect("Could not find source model by name");
+        
+    let stats_address = scheduler.get_address::<StatisticsCollector>("statistics")
+        .expect("Could not find statistics model by name");
     
-    // Trigger the product source to start generating products
     // First step the simulation to trigger model initialization
     simulation.step()?;
     
-    // Schedule first arrival manually
-    simulation.registry().schedule_event(
-        source_id, 
+    // Schedule first arrival manually using the scheduler instead of registry
+    scheduler.schedule_event(
         Duration::ZERO,
-        ProductSource::generate_product, 
-        ()
+        ProductSource::start_generation, // Use a public method instead of generate_product
+        (),
+        source_address
     )?;
     
     println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
@@ -169,14 +171,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Run the simulation until the specified time
     simulation.step_until(t0 + Duration::from_secs(config.simulation.simulation_time * 60))?;
     
-    // Print statistics
-    // Access the statistics model and retrieve results
-    let stats_id = scheduler.id_of("statistics").unwrap();
-    let stats_model = &simulation.registry()[stats_id];
-    // Need to downcast to get the concrete model type
-    let stats = stats_model.downcast_ref::<StatisticsCollector>()
-        .expect("Failed to downcast to StatisticsCollector");
-    stats.print_statistics(config.simulation.simulation_time as f64);
+    // Print statistics by querying the statistics model
+    println!("Retrieving and printing statistics...");
+    
+    // Assuming StatisticsCollector has a get_statistics query method that returns statistics data
+    let stats_data = simulation.process_query(
+        StatisticsCollector::get_statistics,
+        config.simulation.simulation_time as f64,
+        stats_address
+    )?;
     
     println!("Simulation completed successfully");
     
