@@ -3,7 +3,7 @@ mod models;
 
 use std::time::Duration;
 use clap::Parser;
-use nexosim::simulation::{Mailbox, SimInit};
+use nexosim::simulation::{Address, Mailbox, SimInit};
 use nexosim::time::MonotonicTime;
 
 use crate::config::Config;
@@ -66,8 +66,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.simulation.seed
     );
     
-    let mut statistics = StatisticsCollector::new(config.simulation.warmup_period);
-    
+    // let mut statistics = StatisticsCollector::new(config.simulation.warmup_period);
+
+
+    // ###################################################
+    // Connect models (assembling simulation benches)
+    // ###################################################
+
     // Create mailboxes
     let source_mbox = Mailbox::new();
     let smd_mbox = Mailbox::new();
@@ -126,8 +131,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let t0 = MonotonicTime::EPOCH;
     let mut sim_init = SimInit::new();
     
-    // Add models to simulation
+    // Add models to simulation and store addresses for later use
+    // Note that add_model returns the modified SimInit, not an address
     sim_init = sim_init.add_model(source, source_mbox, "source");
+    // Store the name for later use with scheduler
+    let source_name = "source";
+
     sim_init = sim_init.add_model(smd_machine, smd_mbox, "smd_machine");
     sim_init = sim_init.add_model(lot_bath_buffer, lot_bath_buffer_mbox, "lot_bath_buffer");
     sim_init = sim_init.add_model(lot_bath, lot_bath_mbox, "lot_bath");
@@ -143,25 +152,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sim_init = sim_init.add_model(test_station, test_mbox, &format!("test_station_{}", i));
     }
     
-    sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
-    
+    // sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
+    // Store the statistics model name for later
+    // let stats_name = "statistics";
+
+    // ###################################################
+    // Running simulation
+    // ###################################################
+
     // Initialize and run simulation
     let (mut simulation, scheduler) = sim_init.init(t0)?;
-    
-    // Get addresses of models using the scheduler
-    let source_address = scheduler.get_address::<ProductSource>("source")
-        .expect("Could not find source model by name");
-        
-    let stats_address = scheduler.get_address::<StatisticsCollector>("statistics")
-        .expect("Could not find statistics model by name");
     
     // First step the simulation to trigger model initialization
     simulation.step()?;
     
-    // Schedule first arrival manually using the scheduler instead of registry
+    // Schedule first arrival manually using the scheduler
+    let source_address = Address::from_name(source_name);
     scheduler.schedule_event(
         Duration::ZERO,
-        ProductSource::start_generation, // Use a public method instead of generate_product
+        ProductSource::start_generation,
         (),
         source_address
     )?;
@@ -171,16 +180,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Run the simulation until the specified time
     simulation.step_until(t0 + Duration::from_secs(config.simulation.simulation_time * 60))?;
     
-    // Print statistics by querying the statistics model
-    println!("Retrieving and printing statistics...");
-    
-    // Assuming StatisticsCollector has a get_statistics query method that returns statistics data
-    let stats_data = simulation.process_query(
-        StatisticsCollector::get_statistics,
-        config.simulation.simulation_time as f64,
-        stats_address
-    )?;
-    
+    // Print statistics
+    // Access the statistics model using process_query
+    // We'll construct an address from the name
+    // let stats_address = Address::from_name(stats_name);
+
+    // Process a query to the statistics model to get the data
+    // let stats_result = simulation.process_query(
+    //     StatisticsCollector::get_statistics,
+    //     (),
+    //     stats_address
+    // )?;
+
+    // Print statistics
+    println!("Simulation statistics:");
+    println!("{:?}", stats_result);
+
     println!("Simulation completed successfully");
     
     Ok(())
