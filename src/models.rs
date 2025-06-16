@@ -303,54 +303,54 @@ pub struct StatisticsCollector {
     pub warmup_complete: bool,
 }
 
-// impl StatisticsCollector {
-//     pub fn new(warmup_period: u64) -> Self {
-//         Self {
-//             throughput_count: 0,
-//             warmup_period,
-//             cycle_times: Vec::new(),
-//             warmup_complete: false,
-//         }
-//     }
-//
-//     pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
-//         let current_time = cx.time().as_secs() / 60;  // Convert to minutes
-//
-//         // Check if warmup period is complete
-//         if !self.warmup_complete && current_time >= self.warmup_period.try_into().unwrap() {
-//             self.warmup_complete = true;
-//             println!("Warmup period complete at time: {:.2} minutes", current_time);
-//         }
-//
-//         // Only collect statistics after warmup
-//         if self.warmup_complete {
-//             if let Some(completion_time) = part.completion_time {
-//                 let cycle_time = (completion_time as f64) - (part.entry_time as f64);
-//                 self.cycle_times.push(cycle_time);
-//                 self.throughput_count += 1;
-//             }
-//         }
-//     }
-//
-//     pub fn print_statistics(&self, total_simulation_time: f64) {
-//         println!("\n=== Simulation Statistics ===");
-//         println!("Total parts completed: {}", self.throughput_count);
-//
-//         if !self.cycle_times.is_empty() {
-//             let avg_cycle_time: f64 = self.cycle_times.iter().sum::<f64>() / self.cycle_times.len() as f64;
-//             let max_cycle_time = self.cycle_times.iter().fold(f64::MIN, |a, &b| a.max(b));
-//             let min_cycle_time = self.cycle_times.iter().fold(f64::MAX, |a, &b| a.min(b));
-//
-//             println!("Average cycle time: {:.2} minutes", avg_cycle_time);
-//             println!("Minimum cycle time: {:.2} minutes", min_cycle_time);
-//             println!("Maximum cycle time: {:.2} minutes", max_cycle_time);
-//
-//             // Calculate throughput per hour
-//             let effective_sim_time = total_simulation_time - self.warmup_period as f64;
-//             let throughput_per_hour = (self.throughput_count as f64 / effective_sim_time) * 60.0;
-//             println!("Throughput rate: {:.2} parts per hour", throughput_per_hour);
-//         }
-//     }
-// }
-//
-// impl Model for StatisticsCollector {}
+impl StatisticsCollector {
+    pub fn new(warmup_period: u64) -> Self {
+        Self {
+            throughput_count: 0,
+            warmup_period,
+            cycle_times: Vec::new(),
+            warmup_complete: false,
+        }
+    }
+
+    pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
+        let current_time = cx.time().as_secs() / 60;  // Convert to minutes
+
+        // Check if warmup period is complete
+        if !self.warmup_complete && current_time >= self.warmup_period.try_into().unwrap() {
+            self.warmup_complete = true;
+            println!("Warmup period complete at time: {:.2} minutes", current_time);
+        }
+
+        // Only collect statistics after warmup
+        if self.warmup_complete {
+            if let Some(completion_time) = part.completion_time {
+                let cycle_time = (completion_time as f64) - (part.entry_time as f64);
+                self.cycle_times.push(cycle_time);
+                self.throughput_count += 1;
+            }
+        }
+    }
+
+    pub fn print_statistics(&self, total_simulation_time: f64) {
+        println!("\n=== Simulation Statistics ===");
+        println!("Total parts completed: {}", self.throughput_count);
+
+        if !self.cycle_times.is_empty() {
+            let avg_cycle_time: f64 = self.cycle_times.iter().sum::<f64>() / self.cycle_times.len() as f64;
+            let max_cycle_time = self.cycle_times.iter().fold(f64::MIN, |a, &b| a.max(b));
+            let min_cycle_time = self.cycle_times.iter().fold(f64::MAX, |a, &b| a.min(b));
+
+            println!("Average cycle time: {:.2} minutes", avg_cycle_time);
+            println!("Minimum cycle time: {:.2} minutes", min_cycle_time);
+            println!("Maximum cycle time: {:.2} minutes", max_cycle_time);
+
+            // Calculate throughput per hour
+            let effective_sim_time = total_simulation_time - self.warmup_period as f64;
+            let throughput_per_hour = (self.throughput_count as f64 / effective_sim_time) * 60.0;
+            println!("Throughput rate: {:.2} parts per hour", throughput_per_hour);
+        }
+    }
+}
+
+impl Model for StatisticsCollector {}

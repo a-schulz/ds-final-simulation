@@ -3,7 +3,7 @@ mod models;
 
 use std::time::Duration;
 use clap::Parser;
-use nexosim::simulation::{Address, Mailbox, SimInit};
+use nexosim::simulation::{Mailbox, SimInit};
 use nexosim::time::MonotonicTime;
 
 use crate::config::Config;
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.simulation.seed
     );
     
-    // let mut statistics = StatisticsCollector::new(config.simulation.warmup_period);
+    let mut statistics = StatisticsCollector::new(config.simulation.warmup_period);
 
 
     // ###################################################
@@ -75,6 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create mailboxes
     let source_mbox = Mailbox::new();
+    let source_address = source_mbox.address();
     let smd_mbox = Mailbox::new();
     let lot_bath_buffer_mbox = Mailbox::new();
     let lot_bath_mbox = Mailbox::new();
@@ -92,7 +93,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         test_mboxes.push(Mailbox::new());
     }
     
-    // let stats_mbox = Mailbox::new();
+    let stats_mbox = Mailbox::new();
+    let stats_address = stats_mbox.address();
     
     // Connect models
     // Source -> SMD Machine
@@ -122,10 +124,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         test_buffer.output.connect(QualityControl::input, test_mbox);
     }
     
-    // // Test Stations -> Statistics Collector
-    // for test_station in test_stations.iter_mut() {
-    //     test_station.output.connect(StatisticsCollector::input, &stats_mbox);
-    // }
+    // Test Stations -> Statistics Collector
+    for test_station in test_stations.iter_mut() {
+        test_station.output.connect(StatisticsCollector::input, &stats_mbox);
+    }
     
     // Create simulation
     let t0 = MonotonicTime::EPOCH;
@@ -135,7 +137,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that add_model returns the modified SimInit, not an address
     sim_init = sim_init.add_model(source, source_mbox, "source");
     // Store the name for later use with scheduler
-    let source_name = "source";
 
     sim_init = sim_init.add_model(smd_machine, smd_mbox, "smd_machine");
     sim_init = sim_init.add_model(lot_bath_buffer, lot_bath_buffer_mbox, "lot_bath_buffer");
@@ -152,9 +153,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sim_init = sim_init.add_model(test_station, test_mbox, &format!("test_station_{}", i));
     }
     
-    // sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
+    sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
     // Store the statistics model name for later
-    // let stats_name = "statistics";
 
     // ###################################################
     // Running simulation
@@ -162,15 +162,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize and run simulation
     let (mut simulation, scheduler) = sim_init.init(t0)?;
-    
-    // First step the simulation to trigger model initialization
-    simulation.step()?;
+
+    simulation.process_event(crate::models::ProductSource::start_generation, (), &source_address)?;
 
     println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
-    
+
     // Run the simulation until the specified time
     simulation.step_until(t0 + Duration::from_secs(config.simulation.simulation_time * 60))?;
 
+    println!("Simulation statistics:");
+    // Process a query to the statistics model to get the data
+    let stats_result = simulation.process_query(
+        StatisticsCollector::print_statistics,
+        config.simulation.simulation_time as f64 * 60.0,
+        stats_address
+    )?;
+
+    // Print statistics
+    println!("Simulation statistics:");
+    println!("{:?}", stats_result);
     println!("Simulation completed successfully");
     
     Ok(())

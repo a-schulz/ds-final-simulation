@@ -21,7 +21,7 @@ pre_assembly_buffer = 15  # P2
 pre_test_buffer = 15  # P3
 
 [simulation]
-simulation_time = 480  # Total simulation time in minutes (8 hours)
+simulation_time = 4800  # Total simulation time in minutes (8 hours)
 warmup_period = 60  # Warmup period in minutes
 arrival_rate = 1.5  # Mean arrival rate (parts per minute)
 seed = 42  # Random seed for reproducibility
