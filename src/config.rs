@@ -39,7 +39,6 @@ pub struct BufferCapacities {
 #[derive(Debug, Deserialize)]
 pub struct SimulationConfig {
     pub simulation_time: u64,
-    pub warmup_period: u64,
     pub arrival_rate: f64,
     pub seed: u64,
 }

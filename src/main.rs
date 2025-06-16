@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.simulation.seed
     );
     
-    let mut statistics = StatisticsCollector::new(config.simulation.warmup_period);
+    let mut statistics = StatisticsCollector::new();
 
 
     // ###################################################
@@ -163,24 +163,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize and run simulation
     let (mut simulation, scheduler) = sim_init.init(t0)?;
 
-    simulation.process_event(crate::models::ProductSource::start_generation, (), &source_address)?;
+    simulation.process_event(ProductSource::start_generation, (), &source_address)?;
 
     println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
 
     // Run the simulation until the specified time
     simulation.step_until(t0 + Duration::from_secs(config.simulation.simulation_time * 60))?;
 
-    println!("Simulation statistics:");
-    // Process a query to the statistics model to get the data
-    let stats_result = simulation.process_query(
-        StatisticsCollector::print_statistics,
-        config.simulation.simulation_time as f64 * 60.0,
-        stats_address
-    )?;
-
-    // Print statistics
-    println!("Simulation statistics:");
-    println!("{:?}", stats_result);
+    // Collect statistics
+    println!("{}", statistics.print_statistics(config.simulation.simulation_time as f64));
     println!("Simulation completed successfully");
     
     Ok(())

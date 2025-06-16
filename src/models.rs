@@ -80,7 +80,7 @@ impl Buffer {
         if !self.queue.is_empty() {
             self.queue.remove(0);
         }
-        
+
         // Send the next item if available
         if !self.queue.is_empty() {
             let part = self.queue[0].clone();
@@ -114,16 +114,16 @@ impl LotBath {
 
     pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
         self.current_batch.push(part);
-        
+
         // If batch is full, start processing
         if self.current_batch.len() >= self.batch_size || self.busy {
             if !self.busy {
                 self.busy = true;
                 // Schedule batch completion
                 cx.schedule_event(
-                    Duration::from_secs_f64(self.process_time * 60.0), 
-                    Self::complete_batch, 
-                    ()
+                    Duration::from_secs_f64(self.process_time * 60.0),
+                    Self::complete_batch,
+                    (),
                 ).unwrap();
             }
         }
@@ -131,7 +131,7 @@ impl LotBath {
 
     async fn complete_batch(&mut self, _: ()) {
         self.busy = false;
-        
+
         // Send all parts from the batch
         for part in self.current_batch.drain(..) {
             self.output.send(part).await;
@@ -163,16 +163,16 @@ impl AssemblyStation {
 
     pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
         self.busy = true;
-        
+
         // Generate random processing time with uniform distribution
         let distr = Uniform::new(self.min_time, self.max_time);
         let process_time = distr.sample(&mut self.rng);
-        
+
         // Schedule completion
         cx.schedule_event(
             Duration::from_secs_f64(process_time * 60.0),
-            Self::complete, 
-            part
+            Self::complete,
+            part,
         ).unwrap();
     }
 
@@ -208,21 +208,21 @@ impl QualityControl {
 
     pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
         self.busy = true;
-        
+
         // Generate random processing time with normal distribution
         let normal = Normal::new(self.mean_time, self.std_dev).unwrap();
         let mut process_time = normal.sample(&mut self.rng);
-        
+
         // Apply minimum time constraint
         if process_time < self.min_time {
             process_time = self.min_time;
         }
-        
+
         // Schedule completion
         cx.schedule_event(
             Duration::from_secs_f64(process_time * 60.0),
             Self::complete,
-            part
+            part,
         ).unwrap();
     }
 
@@ -268,11 +268,11 @@ impl ProductSource {
     fn schedule_next_arrival(&mut self, cx: &mut Context<Self>) {
         // Exponentially distributed inter-arrival times (Poisson process)
         let interval = -self.arrival_rate.recip() * self.rng.gen::<f64>().ln();
-        
+
         cx.schedule_event(
             Duration::from_secs_f64(interval * 60.0),
             Self::generate_product,
-            ()
+            (),
         ).unwrap();
     }
 
@@ -284,10 +284,10 @@ impl ProductSource {
             completion_time: None,
         };
         self.next_id += 1;
-        
+
         // Send to output
         self.output.send(product).await;
-        
+
         // Schedule next arrival
         self.schedule_next_arrival(cx);
     }
@@ -298,58 +298,44 @@ impl Model for ProductSource {}
 // Statistics collector for gathering performance metrics
 pub struct StatisticsCollector {
     pub throughput_count: u64,
-    pub warmup_period: u64,  // Minutes
     pub cycle_times: Vec<f64>,
-    pub warmup_complete: bool,
 }
 
 impl StatisticsCollector {
-    pub fn new(warmup_period: u64) -> Self {
+    pub fn new() -> Self {
         Self {
             throughput_count: 0,
-            warmup_period,
             cycle_times: Vec::new(),
-            warmup_complete: false,
         }
     }
 
-    pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
-        let current_time = cx.time().as_secs() / 60;  // Convert to minutes
-
-        // Check if warmup period is complete
-        if !self.warmup_complete && current_time >= self.warmup_period.try_into().unwrap() {
-            self.warmup_complete = true;
-            println!("Warmup period complete at time: {:.2} minutes", current_time);
-        }
-
-        // Only collect statistics after warmup
-        if self.warmup_complete {
-            if let Some(completion_time) = part.completion_time {
-                let cycle_time = (completion_time as f64) - (part.entry_time as f64);
-                self.cycle_times.push(cycle_time);
-                self.throughput_count += 1;
-            }
+    pub async fn input(&mut self, part: Telix1) {
+        if let Some(completion_time) = part.completion_time {
+            let cycle_time = (completion_time as f64) - (part.entry_time as f64);
+            self.cycle_times.push(cycle_time);
+            self.throughput_count += 1;
         }
     }
 
-    pub fn print_statistics(&self, total_simulation_time: f64) {
-        println!("\n=== Simulation Statistics ===");
-        println!("Total parts completed: {}", self.throughput_count);
+    pub fn print_statistics(&self, total_simulation_time: f64) -> String {
+        let mut result = String::from("\n=== Simulation Statistics ===\n");
+        result.push_str(&format!("Total parts completed: {}\n", self.throughput_count));
 
         if !self.cycle_times.is_empty() {
             let avg_cycle_time: f64 = self.cycle_times.iter().sum::<f64>() / self.cycle_times.len() as f64;
             let max_cycle_time = self.cycle_times.iter().fold(f64::MIN, |a, &b| a.max(b));
             let min_cycle_time = self.cycle_times.iter().fold(f64::MAX, |a, &b| a.min(b));
 
-            println!("Average cycle time: {:.2} minutes", avg_cycle_time);
-            println!("Minimum cycle time: {:.2} minutes", min_cycle_time);
-            println!("Maximum cycle time: {:.2} minutes", max_cycle_time);
+            result.push_str(&format!("Average cycle time: {:.2} minutes\n", avg_cycle_time));
+            result.push_str(&format!("Minimum cycle time: {:.2} minutes\n", min_cycle_time));
+            result.push_str(&format!("Maximum cycle time: {:.2} minutes\n", max_cycle_time));
 
             // Calculate throughput per hour
-            let effective_sim_time = total_simulation_time - self.warmup_period as f64;
-            let throughput_per_hour = (self.throughput_count as f64 / effective_sim_time) * 60.0;
-            println!("Throughput rate: {:.2} parts per hour", throughput_per_hour);
+            let throughput_per_hour = (self.throughput_count as f64 / total_simulation_time) * 60.0;
+            result.push_str(&format!("Throughput rate: {:.2} parts per hour\n", throughput_per_hour));
         }
+
+        result
     }
 }
 
