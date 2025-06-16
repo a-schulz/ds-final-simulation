@@ -1,0 +1,27 @@
+[process_times]
+# All times in minutes
+smd_placement_time = 1.0  # Constant time
+lot_bath_capacity = 6  # Units per batch
+lot_bath_batches_per_hour = 10  # Leading to 6 min per batch
+assembly_time_min = 3.0  # min time (4 - 1)
+assembly_time_max = 5.0  # max time (4 + 1)
+quality_control_mean = 6.0  # Mean time for normal distribution
+quality_control_std_dev = 4.0  # Standard deviation
+quality_control_min_time = 3.0  # Minimum time required
+
+[resources]
+smd_machines = 1
+lot_bath_machines = 1
+assembly_workstations = 2
+test_stations = 2
+
+[buffer_capacities]
+pre_lot_bath_buffer = 15  # P1
+pre_assembly_buffer = 15  # P2
+pre_test_buffer = 15  # P3
+
+[simulation]
+simulation_time = 480  # Total simulation time in minutes (8 hours)
+warmup_period = 60  # Warmup period in minutes
+arrival_rate = 1.5  # Mean arrival rate (parts per minute)
+seed = 42  # Random seed for reproducibility
