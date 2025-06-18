@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     simulation.step_until(t0 + Duration::from_secs(config.simulation.simulation_time * 60))?;
 
     // Collect statistics
-    println!("{}", statistics.print_statistics(config.simulation.simulation_time as f64));
+    // println!("{}", statistics.print_statistics(config.simulation.simulation_time as f64));
     println!("Simulation completed successfully");
     
     Ok(())

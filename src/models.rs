@@ -253,12 +253,7 @@ impl ProductSource {
             rng: StdRng::seed_from_u64(seed),
         }
     }
-
-    pub fn start(&mut self, cx: &mut Context<Self>) {
-        // Schedule first arrival
-        self.schedule_next_arrival(cx);
-    }
-
+    
     // Public method that can be called by the scheduler
     pub async fn start_generation(&mut self, _: (), cx: &mut Context<Self>) {
         // Delegate to the private generate_product method
