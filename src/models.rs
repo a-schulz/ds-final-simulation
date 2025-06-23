@@ -95,16 +95,12 @@ impl Model for PersonSource {}
 // Swimming pool model
 pub struct SwimmingPool {
     pub output: Output<Person>,
-    pub max_capacity: u64,
-    pub current_count: u64,
 }
 
 impl SwimmingPool {
-    pub fn new(max_capacity: u64) -> Self {
+    pub fn new() -> Self {
         Self {
             output: Output::default(),
-            max_capacity,
-            current_count: 0,
         }
     }
 
@@ -114,12 +110,6 @@ impl SwimmingPool {
         // Calculate wait time
         person.wait_time = current_time.saturating_sub(person.arrival_time);
         person.entry_time = current_time;
-
-        // Increment counter
-        self.current_count += 1;
-
-        /*println!("DEBUG: Person {} entered pool. Current count: {}/{}",
-            person.id, self.current_count, self.max_capacity);*/
 
         // Schedule person to leave after swim time
         cx.schedule_event(
@@ -134,16 +124,6 @@ impl SwimmingPool {
         let current_time = cx.time().as_secs() as u64;
         person.exit_time = Some(current_time);
 
-        // Decrement counter
-        self.current_count -= 1;
-
-        /*println!("DEBUG: Person {} exited pool after {} minutes. Current count: {}/{}",
-            person.id,
-            (current_time - person.entry_time) as f64 / 60.0,
-            self.current_count,
-            self.max_capacity);*/
-
-        // Send to statistics collector
         self.output.send(person).await;
     }
 }
@@ -215,6 +195,7 @@ impl StatisticsCollector {
         self.max_wait_time = self.max_wait_time.max(person.wait_time);
     }
 
+    // Use this somewhere in the simulation
     pub fn update_queue_length(&mut self, length: usize) {
         self.max_queue_length = self.max_queue_length.max(length);
     }
@@ -288,7 +269,7 @@ impl PoolController {
     }
 
     // When a person exits the pool
-    pub async fn person_exited(&mut self, person: Person) {
+    pub async fn person_exited(&mut self, _person: Person) {
         self.current_count -= 1;
        /*println!("DEBUG: Controller - Person {} exited, decremented count to {}/{}",
             person.id, self.current_count, self.max_capacity);*/

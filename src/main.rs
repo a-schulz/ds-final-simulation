@@ -1,17 +1,20 @@
 // src/main.rs
 mod config;
 mod models;
+mod utils;
 
 use std::time::{Duration, Instant};
 use clap::Parser;
+use nexosim::ports::{EventQueue, EventSlot};
 use nexosim::simulation::{Mailbox, SimInit};
 use nexosim::time::MonotonicTime;
 
 use crate::config::Config;
 use crate::models::{
     PersonSource, SwimmingPool, WaitingQueue,
-    StatisticsCollector, PoolController
+    PoolController
 };
+use crate::utils::calculate_statistics;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -29,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_file(&args.config_file)?;
     println!("Loaded configuration from {}", args.config_file);
 
-    // Initialize models
+    // Instantiate models.
     let mut person_source = PersonSource::new(
         config.simulation.arrival_min,
         config.simulation.arrival_max,
@@ -38,20 +41,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         42 // seed
     );
 
-    let mut swimming_pool = SwimmingPool::new(config.simulation.max_swimmers);
+    let mut swimming_pool = SwimmingPool::new();
     let mut waiting_queue = WaitingQueue::new();
     let mut pool_controller = PoolController::new(config.simulation.max_swimmers);
-    let mut statistics = StatisticsCollector::new();
 
-    // Create mailboxes
+    // Instantiate mailboxes.
     let source_mbox = Mailbox::new();
     let source_address = source_mbox.address();
     let pool_mbox = Mailbox::new();
     let queue_mbox = Mailbox::new();
     let controller_mbox = Mailbox::new();
-    let stats_mbox = Mailbox::new();
 
-    // Connect models
+    // Connect the models.
     // Person Source -> Pool Controller
     person_source.output.connect(PoolController::input, &controller_mbox);
 
@@ -64,28 +65,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Pool Controller -> Waiting Queue notification (when space becomes available)
     pool_controller.pool_notification.connect(WaitingQueue::pool_available, &queue_mbox);
 
-    // Swimming Pool -> Statistics (when person exits)
-    swimming_pool.output.connect(StatisticsCollector::input, &stats_mbox);
     // Swimming Pool -> Pool Controller (when person exits)
     swimming_pool.output.connect(PoolController::person_exited, &controller_mbox);
-
-
+    
     // Waiting Queue -> Swimming Pool (when space becomes available)
     waiting_queue.output.connect(SwimmingPool::input, &pool_mbox);
+
+    // Keep handles to the system output for the simulation.
+    let output_queue = EventQueue::new();
+    swimming_pool.output.connect_sink(&output_queue);
 
     // Initialize simulation
     let t0 = MonotonicTime::EPOCH;
     let mut sim_init = SimInit::new();
-
-    // Keep a clone of the statistics object for reporting
-    let stats_clone = statistics.clone();
 
     // Add models to simulation
     sim_init = sim_init.add_model(person_source, source_mbox, "person_source");
     sim_init = sim_init.add_model(swimming_pool, pool_mbox, "swimming_pool");
     sim_init = sim_init.add_model(waiting_queue, queue_mbox, "waiting_queue");
     sim_init = sim_init.add_model(pool_controller, controller_mbox, "pool_controller");
-    sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
 
     let real_start_time = Instant::now();
     // Initialize and run simulation
@@ -101,8 +99,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Print statistics
     println!("Wall clock execution time: {:?}", real_start_time.elapsed());
-    /*let stats_output = stats_clone.print_statistics(config.simulation.simulation_time);
-    println!("{}", stats_output);*/
+    let output_reader = output_queue.into_reader();
+    let stats = calculate_statistics(output_reader);
     println!("Simulation completed successfully");
 
     Ok(())
