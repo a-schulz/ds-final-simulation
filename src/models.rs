@@ -78,7 +78,7 @@ impl PersonSource {
         let swim_time = swim_dist.sample(&mut self.rng);
 
         // Create new person
-        let current_time = cx.time().as_secs();
+        let current_time = cx.time().as_secs() as u64;
         let person = Person::new(self.next_id, current_time, swim_time);
         self.next_id += 1;
 
@@ -109,10 +109,10 @@ impl SwimmingPool {
     }
 
     pub fn input(&mut self, mut person: Person, cx: &mut Context<Self>) {
-        let current_time = cx.time().as_secs();
+        let current_time = cx.time().as_secs() as u64;
 
         // Calculate wait time
-        person.wait_time = current_time - person.arrival_time;
+        person.wait_time = current_time.saturating_sub(person.arrival_time);
         person.entry_time = current_time;
 
         // Increment counter
@@ -126,9 +126,10 @@ impl SwimmingPool {
         ).unwrap();
     }
 
-    async fn person_exits(&mut self, mut person: Person) {
+    async fn person_exits(&mut self, mut person: Person, cx: &mut Context<Self>) {
         // Set exit time and send to statistics
-        person.exit_time = Some(self.current_time);
+        let current_time = cx.time().as_secs() as u64;
+        person.exit_time = Some(current_time);
 
         // Decrement counter
         self.current_count -= 1;
@@ -143,6 +144,7 @@ impl Model for SwimmingPool {}
 // Waiting queue for when the pool is full
 pub struct WaitingQueue {
     pub output: Output<Person>,
+    pub pool_notification: Output<()>,
     pub queue: Vec<Person>,
 }
 
@@ -150,6 +152,7 @@ impl WaitingQueue {
     pub fn new() -> Self {
         Self {
             output: Output::default(),
+            pool_notification: Output::default(),
             queue: Vec::new(),
         }
     }
@@ -172,6 +175,7 @@ impl WaitingQueue {
 impl Model for WaitingQueue {}
 
 // Statistics collector
+#[derive(Clone)]
 pub struct StatisticsCollector {
     pub persons_processed: u64,
     pub total_wait_time: u64,
@@ -245,6 +249,7 @@ impl Model for StatisticsCollector {}
 pub struct PoolController {
     pub pool_output: Output<Person>,
     pub queue_output: Output<Person>,
+    pub pool_notification: Output<()>, // New field for notifying when pool has space
     pub max_capacity: u64,
     pub current_count: u64,
 }
@@ -254,6 +259,7 @@ impl PoolController {
         Self {
             pool_output: Output::default(),
             queue_output: Output::default(),
+            pool_notification: Output::default(),
             max_capacity,
             current_count: 0,
         }
@@ -274,8 +280,12 @@ impl PoolController {
     pub async fn person_exited(&mut self, _: ()) {
         self.current_count -= 1;
         // Notify queue that space is available
-        self.queue_output.send(()).await;
+        self.pool_notification.send(()).await;
     }
+    pub fn person_notification(&mut self, _person: Person, _cx: &mut Context<Self>) {
+        self.current_count -= 1;
+    }
+
 }
 
 impl Model for PoolController {}

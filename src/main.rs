@@ -6,10 +6,11 @@ use std::time::Duration;
 use clap::Parser;
 use nexosim::simulation::{Mailbox, SimInit};
 use nexosim::time::MonotonicTime;
+use nexosim::ports::EventSlot;
 
 use crate::config::Config;
 use crate::models::{
-    Person, PersonSource, SwimmingPool, WaitingQueue,
+    PersonSource, SwimmingPool, WaitingQueue,
     StatisticsCollector, PoolController
 };
 
@@ -51,6 +52,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let controller_mbox = Mailbox::new();
     let stats_mbox = Mailbox::new();
 
+    // Create notification slot for pool exits
+    let mut exit_slot = EventSlot::new();
+
     // Connect models
     // Person Source -> Pool Controller
     person_source.output.connect(PoolController::input, &controller_mbox);
@@ -60,12 +64,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Pool Controller -> Waiting Queue (when pool is full)
     pool_controller.queue_output.connect(WaitingQueue::input, &queue_mbox);
+    
+    // Pool Controller -> Waiting Queue notification (when space becomes available)
+    pool_controller.pool_notification.connect(WaitingQueue::pool_available, &queue_mbox);
 
     // Swimming Pool -> Statistics (when person exits)
     swimming_pool.output.connect(StatisticsCollector::input, &stats_mbox);
 
-    // Swimming Pool -> Pool Controller (notify of exit)
-    swimming_pool.output.connect(PoolController::person_exited, &controller_mbox);
+    // Swimming Pool -> Exit Slot (for notification)
+    swimming_pool.output.connect_sink(&exit_slot);
 
     // Waiting Queue -> Swimming Pool (when space becomes available)
     waiting_queue.output.connect(SwimmingPool::input, &pool_mbox);
@@ -74,6 +81,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let t0 = MonotonicTime::EPOCH;
     let mut sim_init = SimInit::new();
 
+    // Keep a clone of the statistics object for reporting
+    let stats_clone = statistics.clone();
+    
     // Add models to simulation
     sim_init = sim_init.add_model(person_source, source_mbox, "person_source");
     sim_init = sim_init.add_model(swimming_pool, pool_mbox, "swimming_pool");
@@ -82,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
 
     // Initialize and run simulation
-    let (mut simulation, scheduler) = sim_init.init(t0)?;
+    let (mut simulation, _scheduler) = sim_init.init(t0)?;
 
     // Start person generation
     simulation.process_event(PersonSource::start_generation, (), &source_address)?;
@@ -93,7 +103,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     simulation.step_until(t0 + Duration::from_secs_f64(config.simulation.simulation_time * 60.0))?;
 
     // Print statistics
-    println!("{}", statistics.print_statistics(config.simulation.simulation_time));
+    let stats_output = stats_clone.print_statistics(config.simulation.simulation_time);
+    println!("{}", stats_output);
     println!("Simulation completed successfully");
 
     Ok(())
