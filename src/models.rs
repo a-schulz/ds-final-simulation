@@ -117,6 +117,9 @@ impl SwimmingPool {
 
         // Increment counter
         self.current_count += 1;
+        
+        println!("DEBUG: Person {} entered pool. Current count: {}/{}", 
+            person.id, self.current_count, self.max_capacity);
 
         // Schedule person to leave after swim time
         cx.schedule_event(
@@ -133,6 +136,12 @@ impl SwimmingPool {
 
         // Decrement counter
         self.current_count -= 1;
+        
+        println!("DEBUG: Person {} exited pool after {} minutes. Current count: {}/{}", 
+            person.id, 
+            (current_time - person.entry_time) as f64 / 60.0, 
+            self.current_count, 
+            self.max_capacity);
 
         // Send to statistics collector
         self.output.send(person).await;
@@ -269,19 +278,26 @@ impl PoolController {
         if self.current_count < self.max_capacity {
             // Pool has space - send directly to pool
             self.current_count += 1;
+            println!("DEBUG: Controller - Sending person {} directly to pool. Current count: {}/{}", 
+                person.id, self.current_count, self.max_capacity);
             self.pool_output.send(person).await;
         } else {
             // Pool is full - send to waiting queue
+            println!("DEBUG: Controller - Pool full, sending person {} to queue. Current count: {}/{}", 
+                person.id, self.current_count, self.max_capacity);
             self.queue_output.send(person).await;
         }
     }
 
     // When a person exits the pool
-    pub async fn person_exited(&mut self, _: ()) {
+    pub async fn person_exited(&mut self, person: Person) {
         self.current_count -= 1;
+        println!("DEBUG: Controller - Person {} exited, decremented count to {}/{}", 
+            person.id, self.current_count, self.max_capacity);
         // Notify queue that space is available
         self.pool_notification.send(()).await;
     }
+    
     pub fn person_notification(&mut self, _person: Person, _cx: &mut Context<Self>) {
         self.current_count -= 1;
     }

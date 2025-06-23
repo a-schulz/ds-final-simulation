@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Pool Controller -> Waiting Queue (when pool is full)
     pool_controller.queue_output.connect(WaitingQueue::input, &queue_mbox);
-    
+
     // Pool Controller -> Waiting Queue notification (when space becomes available)
     pool_controller.pool_notification.connect(WaitingQueue::pool_available, &queue_mbox);
 
@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Keep a clone of the statistics object for reporting
     let stats_clone = statistics.clone();
-    
+
     // Add models to simulation
     sim_init = sim_init.add_model(person_source, source_mbox, "person_source");
     sim_init = sim_init.add_model(swimming_pool, pool_mbox, "swimming_pool");
