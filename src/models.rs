@@ -8,50 +8,62 @@ use std::time::Duration;
 
 // The main product that flows through the production system
 #[derive(Debug, Clone)]
-pub struct Telix1 {
+pub struct Person {
     pub id: u64,
+    pub swimming_duration: f64, // Duration in minutes
     pub entry_time: u64,
-    pub completion_time: Option<u64>,
+    pub leave_time: Option<u64>,
+}
+
+impl Person {
+    pub fn new() -> Self {
+        Self {
+            id,
+            swimming_duration,
+            entry_time,
+            leave_time: None,
+        }
+    }
 }
 
 // SMD Placement machine model
 #[derive(Default)]
-pub struct SmdMachine {
-    pub output: Output<Telix1>,
-    pub process_time: f64,
-    pub busy: bool,
+pub struct SwimmingPool {
+    pub output: Output<Person>,
+    pub max_people: u64,
+    pub current_people: u64
 }
 
-impl SmdMachine {
-    pub fn new(process_time: f64) -> Self {
+impl SwimmingPool {
+    pub fn new(max_people: u64) -> Self {
         Self {
             output: Output::default(),
-            process_time,
-            busy: false,
+            max_people,
+            current_people: 0,
         }
     }
 
-    pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
-        self.busy = true;
+    pub fn input(&mut self, person: Person, cx: &mut Context<Self>) {
+        self.current_people += 1;
+        
         // Schedule completion after process time
-        cx.schedule_event(Duration::from_secs_f64(self.process_time * 60.0), Self::complete, part)
+        cx.schedule_event(Duration::from_secs_f64(self.process_time * 60.0), Self::complete_swimming_session, person)
             .unwrap();
     }
 
-    async fn complete(&mut self, part: Telix1) {
-        self.busy = false;
+    async fn complete_swimming_session(&mut self, part: Person) {
         self.output.send(part).await;
     }
 }
 
-impl Model for SmdMachine {}
+impl Model for SwimmingPool {}
 
 // Buffer model for intermediate storage
 #[derive(Default)]
 pub struct Buffer {
-    pub output: Output<Telix1>,
+    pub output: Output<Person>,
     pub capacity: usize,
-    pub queue: Vec<Telix1>,
+    pub queue: Vec<Person>,
 }
 
 impl Buffer {
@@ -63,7 +75,7 @@ impl Buffer {
         }
     }
 
-    pub async fn input(&mut self, part: Telix1) {
+    pub async fn input(&mut self, part: Person) {
         if self.queue.len() < self.capacity {
             self.queue.push(part);
             // If this is the first item, send it immediately
@@ -94,10 +106,10 @@ impl Model for Buffer {}
 // Lot Bath model that processes items in batches
 #[derive(Default)]
 pub struct LotBath {
-    pub output: Output<Telix1>,
+    pub output: Output<Person>,
     pub batch_size: usize,
     pub process_time: f64,
-    pub current_batch: Vec<Telix1>,
+    pub current_batch: Vec<Person>,
     pub busy: bool,
 }
 
@@ -112,7 +124,7 @@ impl LotBath {
         }
     }
 
-    pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
+    pub async fn input(&mut self, part: Person, cx: &mut Context<Self>) {
         self.current_batch.push(part);
 
         // If batch is full, start processing
@@ -143,7 +155,7 @@ impl Model for LotBath {}
 
 // Assembly workstation with uniformly distributed processing time
 pub struct AssemblyStation {
-    pub output: Output<Telix1>,
+    pub output: Output<Person>,
     pub min_time: f64,
     pub max_time: f64,
     pub busy: bool,
@@ -161,7 +173,7 @@ impl AssemblyStation {
         }
     }
 
-    pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
+    pub async fn input(&mut self, part: Person, cx: &mut Context<Self>) {
         self.busy = true;
 
         // Generate random processing time with uniform distribution
@@ -176,7 +188,7 @@ impl AssemblyStation {
         ).unwrap();
     }
 
-    async fn complete(&mut self, part: Telix1) {
+    async fn complete(&mut self, part: Person) {
         self.busy = false;
         self.output.send(part).await;
     }
@@ -186,7 +198,7 @@ impl Model for AssemblyStation {}
 
 // Quality Control with normally distributed processing time and minimum time constraint
 pub struct QualityControl {
-    pub output: Output<Telix1>,
+    pub output: Output<Person>,
     pub mean_time: f64,
     pub std_dev: f64,
     pub min_time: f64,
@@ -206,7 +218,7 @@ impl QualityControl {
         }
     }
 
-    pub async fn input(&mut self, part: Telix1, cx: &mut Context<Self>) {
+    pub async fn input(&mut self, part: Person, cx: &mut Context<Self>) {
         self.busy = true;
 
         // Generate random processing time with normal distribution
@@ -226,10 +238,10 @@ impl QualityControl {
         ).unwrap();
     }
 
-    async fn complete(&mut self, mut part: Telix1, cx: &mut Context<Self>) {
+    async fn complete(&mut self, mut part: Person, cx: &mut Context<Self>) {
         self.busy = false;
         // Record completion time
-        part.completion_time = Some((cx.time().as_secs() / 60).try_into().unwrap());  // Time in minutes
+        part.leave_time = Some((cx.time().as_secs() / 60).try_into().unwrap());  // Time in minutes
         self.output.send(part).await;
     }
 }
@@ -238,7 +250,7 @@ impl Model for QualityControl {}
 
 // Product source that generates new Telix1 products
 pub struct ProductSource {
-    pub output: Output<Telix1>,
+    pub output: Output<Person>,
     pub arrival_rate: f64,  // Mean arrivals per minute
     pub next_id: u64,
     pub rng: StdRng,
@@ -253,7 +265,7 @@ impl ProductSource {
             rng: StdRng::seed_from_u64(seed),
         }
     }
-    
+
     // Public method that can be called by the scheduler
     pub async fn start_generation(&mut self, _: (), cx: &mut Context<Self>) {
         // Delegate to the private generate_product method
@@ -273,10 +285,10 @@ impl ProductSource {
 
     async fn generate_product(&mut self, _: (), cx: &mut Context<Self>) {
         // Create new product
-        let product = Telix1 {
+        let product = Person {
             id: self.next_id,
             entry_time: (cx.time().as_secs() / 60).try_into().unwrap(),  // Time in minutes
-            completion_time: None,
+            leave_time: None,
         };
         self.next_id += 1;
 
@@ -304,8 +316,8 @@ impl StatisticsCollector {
         }
     }
 
-    pub async fn input(&mut self, part: Telix1) {
-        if let Some(completion_time) = part.completion_time {
+    pub async fn input(&mut self, part: Person) {
+        if let Some(completion_time) = part.leave_time {
             let cycle_time = (completion_time as f64) - (part.entry_time as f64);
             self.cycle_times.push(cycle_time);
             self.throughput_count += 1;

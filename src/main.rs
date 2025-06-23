@@ -8,7 +8,7 @@ use nexosim::time::MonotonicTime;
 
 use crate::config::Config;
 use crate::models::{
-    SmdMachine, Buffer, LotBath, AssemblyStation, QualityControl,
+    SwimmingPool, Buffer, LotBath, AssemblyStation, QualityControl,
     ProductSource, StatisticsCollector
 };
 
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let lot_bath_process_time = 60.0 / config.process_times.lot_bath_batches_per_hour as f64;
     
     // Initialize models
-    let mut smd_machine = SmdMachine::new(config.process_times.smd_placement_time);
+    let mut smd_machine = SwimmingPool::new(config.process_times.smd_placement_time);
     
     let mut lot_bath_buffer = Buffer::new(config.buffer_capacities.pre_lot_bath_buffer);
     let mut lot_bath = LotBath::new(
@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Connect models
     // Source -> SMD Machine
-    source.output.connect(SmdMachine::input, &smd_mbox);
+    source.output.connect(SwimmingPool::input, &smd_mbox);
     
     // SMD Machine -> Lot Bath Buffer
     smd_machine.output.connect(Buffer::input, &lot_bath_buffer_mbox);
