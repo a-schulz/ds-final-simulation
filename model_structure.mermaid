@@ -1,0 +1,17 @@
+flowchart LR
+    PS[Person Source]
+    PC[Pool Controller]
+    SP[Swimming Pool]
+    WQ[Waiting Queue]
+    SC[Statistics Collector]
+
+    PS -->|output -> input| PC
+
+    PC -->|pool_output -> input| SP
+    PC -->|queue_output -> input| WQ
+    PC -->|pool_notification -> pool_available| WQ
+
+    SP -->|output -> input| SC
+    SP -->|output -> person_exited| PC
+
+    WQ -->|output -> input| SP

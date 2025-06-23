@@ -2,11 +2,10 @@
 mod config;
 mod models;
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use clap::Parser;
 use nexosim::simulation::{Mailbox, SimInit};
 use nexosim::time::MonotonicTime;
-use nexosim::ports::EventSlot;
 
 use crate::config::Config;
 use crate::models::{
@@ -52,9 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let controller_mbox = Mailbox::new();
     let stats_mbox = Mailbox::new();
 
-    // Create notification slot for pool exits
-    let mut exit_slot = EventSlot::new();
-
     // Connect models
     // Person Source -> Pool Controller
     person_source.output.connect(PoolController::input, &controller_mbox);
@@ -70,9 +66,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Swimming Pool -> Statistics (when person exits)
     swimming_pool.output.connect(StatisticsCollector::input, &stats_mbox);
+    // Swimming Pool -> Pool Controller (when person exits)
+    swimming_pool.output.connect(PoolController::person_exited, &controller_mbox);
 
-    // Swimming Pool -> Exit Slot (for notification)
-    swimming_pool.output.connect_sink(&exit_slot);
 
     // Waiting Queue -> Swimming Pool (when space becomes available)
     waiting_queue.output.connect(SwimmingPool::input, &pool_mbox);
@@ -91,6 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     sim_init = sim_init.add_model(pool_controller, controller_mbox, "pool_controller");
     sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
 
+    let real_start_time = Instant::now();
     // Initialize and run simulation
     let (mut simulation, _scheduler) = sim_init.init(t0)?;
 
@@ -103,8 +100,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     simulation.step_until(t0 + Duration::from_secs_f64(config.simulation.simulation_time * 60.0))?;
 
     // Print statistics
-    let stats_output = stats_clone.print_statistics(config.simulation.simulation_time);
-    println!("{}", stats_output);
+    println!("Wall clock execution time: {:?}", real_start_time.elapsed());
+    /*let stats_output = stats_clone.print_statistics(config.simulation.simulation_time);
+    println!("{}", stats_output);*/
     println!("Simulation completed successfully");
 
     Ok(())
