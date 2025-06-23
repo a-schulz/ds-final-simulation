@@ -6,3 +6,6 @@ max_swimmers = 20  # Maximale Anzahl der Schwimmer in der Halle
 # Dauer der Schwimmzeit in Minuten (Gleichverteilung)
 swim_time_min = 20.0  # Minimale Schwimmzeit
 swim_time_max = 30.0  # Maximale Schwimmzeit
+
+# Simulationszeit
+simulation_time = 60.0  # Gesamtdauer der Simulation in Minuten

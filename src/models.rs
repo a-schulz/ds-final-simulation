@@ -1,349 +1,281 @@
+// src/models.rs
 use nexosim::model::{Context, Model};
 use nexosim::ports::Output;
 use rand::prelude::*;
-use rand_distr::{Normal, Uniform};
+use rand_distr::Uniform;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::time::Duration;
 
-// The main product that flows through the production system
+// The main person entity that enters and leaves the swimming pool
 #[derive(Debug, Clone)]
 pub struct Person {
     pub id: u64,
-    pub swimming_duration: f64, // Duration in minutes
-    pub entry_time: u64,
-    pub leave_time: Option<u64>,
+    pub arrival_time: u64,      // Time when person arrived
+    pub entry_time: u64,        // Time when person entered the swimming pool
+    pub exit_time: Option<u64>, // Time when person left the swimming pool
+    pub wait_time: u64,         // Time spent waiting in queue
+    pub swim_time: f64,         // Duration person will swim
 }
 
 impl Person {
-    pub fn new() -> Self {
+    pub fn new(id: u64, arrival_time: u64, swim_time: f64) -> Self {
         Self {
             id,
-            swimming_duration,
-            entry_time,
-            leave_time: None,
+            arrival_time,
+            entry_time: 0,
+            exit_time: None,
+            wait_time: 0,
+            swim_time,
         }
     }
 }
 
-// SMD Placement machine model
-#[derive(Default)]
-pub struct SwimmingPool {
+// Person generator (creates new swimmers at random intervals)
+pub struct PersonSource {
     pub output: Output<Person>,
-    pub max_people: u64,
-    pub current_people: u64
-}
-
-impl SwimmingPool {
-    pub fn new(max_people: u64) -> Self {
-        Self {
-            output: Output::default(),
-            max_people,
-            current_people: 0,
-        }
-    }
-
-    pub fn input(&mut self, person: Person, cx: &mut Context<Self>) {
-        self.current_people += 1;
-        
-        // Schedule completion after process time
-        cx.schedule_event(Duration::from_secs_f64(self.process_time * 60.0), Self::complete_swimming_session, person)
-            .unwrap();
-    }
-
-    async fn complete_swimming_session(&mut self, part: Person) {
-        self.output.send(part).await;
-    }
-}
-
-impl Model for SwimmingPool {}
-
-// Buffer model for intermediate storage
-#[derive(Default)]
-pub struct Buffer {
-    pub output: Output<Person>,
-    pub capacity: usize,
-    pub queue: Vec<Person>,
-}
-
-impl Buffer {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            output: Output::default(),
-            capacity,
-            queue: Vec::new(),
-        }
-    }
-
-    pub async fn input(&mut self, part: Person) {
-        if self.queue.len() < self.capacity {
-            self.queue.push(part);
-            // If this is the first item, send it immediately
-            if self.queue.len() == 1 {
-                let part = self.queue[0].clone();
-                self.output.send(part).await;
-            }
-        }
-    }
-
-    // Called when downstream processing is complete
-    pub async fn release(&mut self) {
-        // Remove the first item
-        if !self.queue.is_empty() {
-            self.queue.remove(0);
-        }
-
-        // Send the next item if available
-        if !self.queue.is_empty() {
-            let part = self.queue[0].clone();
-            self.output.send(part).await;
-        }
-    }
-}
-
-impl Model for Buffer {}
-
-// Lot Bath model that processes items in batches
-#[derive(Default)]
-pub struct LotBath {
-    pub output: Output<Person>,
-    pub batch_size: usize,
-    pub process_time: f64,
-    pub current_batch: Vec<Person>,
-    pub busy: bool,
-}
-
-impl LotBath {
-    pub fn new(batch_size: usize, process_time: f64) -> Self {
-        Self {
-            output: Output::default(),
-            batch_size,
-            process_time,
-            current_batch: Vec::new(),
-            busy: false,
-        }
-    }
-
-    pub async fn input(&mut self, part: Person, cx: &mut Context<Self>) {
-        self.current_batch.push(part);
-
-        // If batch is full, start processing
-        if self.current_batch.len() >= self.batch_size || self.busy {
-            if !self.busy {
-                self.busy = true;
-                // Schedule batch completion
-                cx.schedule_event(
-                    Duration::from_secs_f64(self.process_time * 60.0),
-                    Self::complete_batch,
-                    (),
-                ).unwrap();
-            }
-        }
-    }
-
-    async fn complete_batch(&mut self, _: ()) {
-        self.busy = false;
-
-        // Send all parts from the batch
-        for part in self.current_batch.drain(..) {
-            self.output.send(part).await;
-        }
-    }
-}
-
-impl Model for LotBath {}
-
-// Assembly workstation with uniformly distributed processing time
-pub struct AssemblyStation {
-    pub output: Output<Person>,
-    pub min_time: f64,
-    pub max_time: f64,
-    pub busy: bool,
+    pub arrival_min: f64,
+    pub arrival_max: f64,
+    pub swim_time_min: f64,
+    pub swim_time_max: f64,
     pub rng: StdRng,
-}
-
-impl AssemblyStation {
-    pub fn new(min_time: f64, max_time: f64, seed: u64) -> Self {
-        Self {
-            output: Output::default(),
-            min_time,
-            max_time,
-            busy: false,
-            rng: StdRng::seed_from_u64(seed),
-        }
-    }
-
-    pub async fn input(&mut self, part: Person, cx: &mut Context<Self>) {
-        self.busy = true;
-
-        // Generate random processing time with uniform distribution
-        let distr = Uniform::new(self.min_time, self.max_time);
-        let process_time = distr.sample(&mut self.rng);
-
-        // Schedule completion
-        cx.schedule_event(
-            Duration::from_secs_f64(process_time * 60.0),
-            Self::complete,
-            part,
-        ).unwrap();
-    }
-
-    async fn complete(&mut self, part: Person) {
-        self.busy = false;
-        self.output.send(part).await;
-    }
-}
-
-impl Model for AssemblyStation {}
-
-// Quality Control with normally distributed processing time and minimum time constraint
-pub struct QualityControl {
-    pub output: Output<Person>,
-    pub mean_time: f64,
-    pub std_dev: f64,
-    pub min_time: f64,
-    pub busy: bool,
-    pub rng: StdRng,
-}
-
-impl QualityControl {
-    pub fn new(mean_time: f64, std_dev: f64, min_time: f64, seed: u64) -> Self {
-        Self {
-            output: Output::default(),
-            mean_time,
-            std_dev,
-            min_time,
-            busy: false,
-            rng: StdRng::seed_from_u64(seed),
-        }
-    }
-
-    pub async fn input(&mut self, part: Person, cx: &mut Context<Self>) {
-        self.busy = true;
-
-        // Generate random processing time with normal distribution
-        let normal = Normal::new(self.mean_time, self.std_dev).unwrap();
-        let mut process_time = normal.sample(&mut self.rng);
-
-        // Apply minimum time constraint
-        if process_time < self.min_time {
-            process_time = self.min_time;
-        }
-
-        // Schedule completion
-        cx.schedule_event(
-            Duration::from_secs_f64(process_time * 60.0),
-            Self::complete,
-            part,
-        ).unwrap();
-    }
-
-    async fn complete(&mut self, mut part: Person, cx: &mut Context<Self>) {
-        self.busy = false;
-        // Record completion time
-        part.leave_time = Some((cx.time().as_secs() / 60).try_into().unwrap());  // Time in minutes
-        self.output.send(part).await;
-    }
-}
-
-impl Model for QualityControl {}
-
-// Product source that generates new Telix1 products
-pub struct ProductSource {
-    pub output: Output<Person>,
-    pub arrival_rate: f64,  // Mean arrivals per minute
     pub next_id: u64,
-    pub rng: StdRng,
 }
 
-impl ProductSource {
-    pub fn new(arrival_rate: f64, seed: u64) -> Self {
+impl PersonSource {
+    pub fn new(arrival_min: f64, arrival_max: f64, swim_time_min: f64, swim_time_max: f64, seed: u64) -> Self {
         Self {
             output: Output::default(),
-            arrival_rate,
-            next_id: 0,
+            arrival_min,
+            arrival_max,
+            swim_time_min,
+            swim_time_max,
             rng: StdRng::seed_from_u64(seed),
+            next_id: 0,
         }
     }
 
-    // Public method that can be called by the scheduler
-    pub async fn start_generation(&mut self, _: (), cx: &mut Context<Self>) {
-        // Delegate to the private generate_product method
-        self.generate_product((), cx).await;
+    // Start generating people
+    pub fn start_generation(&mut self, _: (), cx: &mut Context<Self>) {
+        self.schedule_next_arrival(cx);
     }
 
+    // Schedule the next person arrival
     fn schedule_next_arrival(&mut self, cx: &mut Context<Self>) {
-        // Exponentially distributed inter-arrival times (Poisson process)
-        let interval = -self.arrival_rate.recip() * self.rng.gen::<f64>().ln();
+        let arrival_dist = Uniform::new(self.arrival_min, self.arrival_max);
+        let next_arrival_time = arrival_dist.sample(&mut self.rng);
 
         cx.schedule_event(
-            Duration::from_secs_f64(interval * 60.0),
-            Self::generate_product,
-            (),
+            Duration::from_secs_f64(next_arrival_time * 60.0),
+            Self::generate_person,
+            ()
         ).unwrap();
     }
 
-    async fn generate_product(&mut self, _: (), cx: &mut Context<Self>) {
-        // Create new product
-        let product = Person {
-            id: self.next_id,
-            entry_time: (cx.time().as_secs() / 60).try_into().unwrap(),  // Time in minutes
-            leave_time: None,
-        };
+    async fn generate_person(&mut self, _: (), cx: &mut Context<Self>) {
+        // Generate swimming time for this person
+        let swim_dist = Uniform::new(self.swim_time_min, self.swim_time_max);
+        let swim_time = swim_dist.sample(&mut self.rng);
+
+        // Create new person
+        let current_time = cx.time().as_secs();
+        let person = Person::new(self.next_id, current_time, swim_time);
         self.next_id += 1;
 
-        // Send to output
-        self.output.send(product).await;
+        // Send to swimming pool
+        self.output.send(person).await;
 
         // Schedule next arrival
         self.schedule_next_arrival(cx);
     }
 }
 
-impl Model for ProductSource {}
+impl Model for PersonSource {}
 
-// Statistics collector for gathering performance metrics
+// Swimming pool model
+pub struct SwimmingPool {
+    pub output: Output<Person>,
+    pub max_capacity: u64,
+    pub current_count: u64,
+}
+
+impl SwimmingPool {
+    pub fn new(max_capacity: u64) -> Self {
+        Self {
+            output: Output::default(),
+            max_capacity,
+            current_count: 0,
+        }
+    }
+
+    pub fn input(&mut self, mut person: Person, cx: &mut Context<Self>) {
+        let current_time = cx.time().as_secs();
+
+        // Calculate wait time
+        person.wait_time = current_time - person.arrival_time;
+        person.entry_time = current_time;
+
+        // Increment counter
+        self.current_count += 1;
+
+        // Schedule person to leave after swim time
+        cx.schedule_event(
+            Duration::from_secs_f64(person.swim_time * 60.0),
+            Self::person_exits,
+            person
+        ).unwrap();
+    }
+
+    async fn person_exits(&mut self, mut person: Person) {
+        // Set exit time and send to statistics
+        person.exit_time = Some(self.current_time);
+
+        // Decrement counter
+        self.current_count -= 1;
+
+        // Send to statistics collector
+        self.output.send(person).await;
+    }
+}
+
+impl Model for SwimmingPool {}
+
+// Waiting queue for when the pool is full
+pub struct WaitingQueue {
+    pub output: Output<Person>,
+    pub queue: Vec<Person>,
+}
+
+impl WaitingQueue {
+    pub fn new() -> Self {
+        Self {
+            output: Output::default(),
+            queue: Vec::new(),
+        }
+    }
+
+    pub async fn input(&mut self, person: Person) {
+        // Add person to queue
+        self.queue.push(person);
+    }
+
+    // Called when someone leaves the pool
+    pub async fn pool_available(&mut self, _: ()) {
+        // Send the next person to the pool if there's anyone waiting
+        if !self.queue.is_empty() {
+            let person = self.queue.remove(0);
+            self.output.send(person).await;
+        }
+    }
+}
+
+impl Model for WaitingQueue {}
+
+// Statistics collector
 pub struct StatisticsCollector {
-    pub throughput_count: u64,
-    pub cycle_times: Vec<f64>,
+    pub persons_processed: u64,
+    pub total_wait_time: u64,
+    pub total_swim_time: u64,
+    pub max_queue_length: usize,
+    pub max_wait_time: u64,
 }
 
 impl StatisticsCollector {
     pub fn new() -> Self {
         Self {
-            throughput_count: 0,
-            cycle_times: Vec::new(),
+            persons_processed: 0,
+            total_wait_time: 0,
+            total_swim_time: 0,
+            max_queue_length: 0,
+            max_wait_time: 0,
         }
     }
 
-    pub async fn input(&mut self, part: Person) {
-        if let Some(completion_time) = part.leave_time {
-            let cycle_time = (completion_time as f64) - (part.entry_time as f64);
-            self.cycle_times.push(cycle_time);
-            self.throughput_count += 1;
+    pub fn input(&mut self, person: Person, _: &mut Context<Self>) {
+        // Process completed person
+        self.persons_processed += 1;
+        self.total_wait_time += person.wait_time;
+
+        if let Some(exit_time) = person.exit_time {
+            let actual_swim_time = exit_time - person.entry_time;
+            self.total_swim_time += actual_swim_time;
         }
+
+        self.max_wait_time = self.max_wait_time.max(person.wait_time);
     }
 
-    pub fn print_statistics(&self, total_simulation_time: f64) -> String {
-        let mut result = String::from("\n=== Simulation Statistics ===\n");
-        result.push_str(&format!("Total parts completed: {}\n", self.throughput_count));
+    pub fn update_queue_length(&mut self, length: usize) {
+        self.max_queue_length = self.max_queue_length.max(length);
+    }
 
-        if !self.cycle_times.is_empty() {
-            let avg_cycle_time: f64 = self.cycle_times.iter().sum::<f64>() / self.cycle_times.len() as f64;
-            let max_cycle_time = self.cycle_times.iter().fold(f64::MIN, |a, &b| a.max(b));
-            let min_cycle_time = self.cycle_times.iter().fold(f64::MAX, |a, &b| a.min(b));
+    pub fn print_statistics(&self, simulation_time: f64) -> String {
+        let avg_wait_time = if self.persons_processed > 0 {
+            self.total_wait_time as f64 / self.persons_processed as f64 / 60.0 // in minutes
+        } else {
+            0.0
+        };
 
-            result.push_str(&format!("Average cycle time: {:.2} minutes\n", avg_cycle_time));
-            result.push_str(&format!("Minimum cycle time: {:.2} minutes\n", min_cycle_time));
-            result.push_str(&format!("Maximum cycle time: {:.2} minutes\n", max_cycle_time));
+        let avg_swim_time = if self.persons_processed > 0 {
+            self.total_swim_time as f64 / self.persons_processed as f64 / 60.0 // in minutes
+        } else {
+            0.0
+        };
 
-            // Calculate throughput per hour
-            let throughput_per_hour = (self.throughput_count as f64 / total_simulation_time) * 60.0;
-            result.push_str(&format!("Throughput rate: {:.2} parts per hour\n", throughput_per_hour));
-        }
-
-        result
+        format!(
+            "Swimming Pool Simulation Statistics:\n\
+            - Total simulation time: {:.1} minutes\n\
+            - People processed: {}\n\
+            - Average wait time: {:.2} minutes\n\
+            - Maximum wait time: {:.2} minutes\n\
+            - Average swim time: {:.2} minutes\n\
+            - Maximum queue length: {}",
+            simulation_time,
+            self.persons_processed,
+            avg_wait_time,
+            self.max_wait_time as f64 / 60.0,
+            avg_swim_time,
+            self.max_queue_length
+        )
     }
 }
 
 impl Model for StatisticsCollector {}
+
+// Pool controller that manages the swimming pool and waiting queue
+pub struct PoolController {
+    pub pool_output: Output<Person>,
+    pub queue_output: Output<Person>,
+    pub max_capacity: u64,
+    pub current_count: u64,
+}
+
+impl PoolController {
+    pub fn new(max_capacity: u64) -> Self {
+        Self {
+            pool_output: Output::default(),
+            queue_output: Output::default(),
+            max_capacity,
+            current_count: 0,
+        }
+    }
+
+    pub async fn input(&mut self, person: Person) {
+        if self.current_count < self.max_capacity {
+            // Pool has space - send directly to pool
+            self.current_count += 1;
+            self.pool_output.send(person).await;
+        } else {
+            // Pool is full - send to waiting queue
+            self.queue_output.send(person).await;
+        }
+    }
+
+    // When a person exits the pool
+    pub async fn person_exited(&mut self, _: ()) {
+        self.current_count -= 1;
+        // Notify queue that space is available
+        self.queue_output.send(()).await;
+    }
+}
+
+impl Model for PoolController {}

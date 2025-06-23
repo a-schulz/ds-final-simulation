@@ -1,3 +1,4 @@
+// src/main.rs
 mod config;
 mod models;
 
@@ -8,8 +9,8 @@ use nexosim::time::MonotonicTime;
 
 use crate::config::Config;
 use crate::models::{
-    SwimmingPool, Buffer, LotBath, AssemblyStation, QualityControl,
-    ProductSource, StatisticsCollector
+    Person, PersonSource, SwimmingPool, WaitingQueue,
+    StatisticsCollector, PoolController
 };
 
 #[derive(Parser, Debug)]
@@ -28,151 +29,72 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_file(&args.config_file)?;
     println!("Loaded configuration from {}", args.config_file);
 
-    // Calculate lot bath process time from batches per hour
-    let lot_bath_process_time = 60.0 / config.process_times.lot_bath_batches_per_hour as f64;
-    
     // Initialize models
-    let mut smd_machine = SwimmingPool::new(config.process_times.smd_placement_time);
-    
-    let mut lot_bath_buffer = Buffer::new(config.buffer_capacities.pre_lot_bath_buffer);
-    let mut lot_bath = LotBath::new(
-        config.process_times.lot_bath_capacity,
-        lot_bath_process_time
+    let mut person_source = PersonSource::new(
+        config.simulation.arrival_min,
+        config.simulation.arrival_max,
+        config.simulation.swim_time_min,
+        config.simulation.swim_time_max,
+        42 // seed
     );
-    
-    let mut assembly_buffer = Buffer::new(config.buffer_capacities.pre_assembly_buffer);
-    let mut assembly_stations = Vec::new();
-    for i in 0..config.resources.assembly_workstations {
-        assembly_stations.push(AssemblyStation::new(
-            config.process_times.assembly_time_min,
-            config.process_times.assembly_time_max,
-            config.simulation.seed + i as u64
-        ));
-    }
-    
-    let mut test_buffer = Buffer::new(config.buffer_capacities.pre_test_buffer);
-    let mut test_stations = Vec::new();
-    for i in 0..config.resources.test_stations {
-        test_stations.push(QualityControl::new(
-            config.process_times.quality_control_mean,
-            config.process_times.quality_control_std_dev,
-            config.process_times.quality_control_min_time,
-            config.simulation.seed + config.resources.assembly_workstations as u64 + i as u64
-        ));
-    }
-    
-    let mut source = ProductSource::new(
-        config.simulation.arrival_rate,
-        config.simulation.seed
-    );
-    
+
+    let mut swimming_pool = SwimmingPool::new(config.simulation.max_swimmers);
+    let mut waiting_queue = WaitingQueue::new();
+    let mut pool_controller = PoolController::new(config.simulation.max_swimmers);
     let mut statistics = StatisticsCollector::new();
-
-
-    // ###################################################
-    // Connect models (assembling simulation benches)
-    // ###################################################
 
     // Create mailboxes
     let source_mbox = Mailbox::new();
     let source_address = source_mbox.address();
-    let smd_mbox = Mailbox::new();
-    let lot_bath_buffer_mbox = Mailbox::new();
-    let lot_bath_mbox = Mailbox::new();
-    let assembly_buffer_mbox = Mailbox::new();
-    
-    let mut assembly_mboxes = Vec::new();
-    for _ in 0..assembly_stations.len() {
-        assembly_mboxes.push(Mailbox::new());
-    }
-    
-    let test_buffer_mbox = Mailbox::new();
-    
-    let mut test_mboxes = Vec::new();
-    for _ in 0..test_stations.len() {
-        test_mboxes.push(Mailbox::new());
-    }
-    
+    let pool_mbox = Mailbox::new();
+    let queue_mbox = Mailbox::new();
+    let controller_mbox = Mailbox::new();
     let stats_mbox = Mailbox::new();
-    let stats_address = stats_mbox.address();
-    
+
     // Connect models
-    // Source -> SMD Machine
-    source.output.connect(SwimmingPool::input, &smd_mbox);
-    
-    // SMD Machine -> Lot Bath Buffer
-    smd_machine.output.connect(Buffer::input, &lot_bath_buffer_mbox);
-    
-    // Lot Bath Buffer -> Lot Bath
-    lot_bath_buffer.output.connect(LotBath::input, &lot_bath_mbox);
-    
-    // Lot Bath -> Assembly Buffer
-    lot_bath.output.connect(Buffer::input, &assembly_buffer_mbox);
-    
-    // Assembly Buffer -> Assembly Stations (round-robin)
-    for assembly_mbox in assembly_mboxes.iter() {
-        assembly_buffer.output.connect(AssemblyStation::input, assembly_mbox);
-    }
-    
-    // Assembly Stations -> Test Buffer
-    for assembly_station in assembly_stations.iter_mut() {
-        assembly_station.output.connect(Buffer::input, &test_buffer_mbox);
-    }
-    
-    // Test Buffer -> Test Stations (round-robin)
-    for test_mbox in test_mboxes.iter() {
-        test_buffer.output.connect(QualityControl::input, test_mbox);
-    }
-    
-    // Test Stations -> Statistics Collector
-    for test_station in test_stations.iter_mut() {
-        test_station.output.connect(StatisticsCollector::input, &stats_mbox);
-    }
-    
-    // Create simulation
+    // Person Source -> Pool Controller
+    person_source.output.connect(PoolController::input, &controller_mbox);
+
+    // Pool Controller -> Swimming Pool (when there's space)
+    pool_controller.pool_output.connect(SwimmingPool::input, &pool_mbox);
+
+    // Pool Controller -> Waiting Queue (when pool is full)
+    pool_controller.queue_output.connect(WaitingQueue::input, &queue_mbox);
+
+    // Swimming Pool -> Statistics (when person exits)
+    swimming_pool.output.connect(StatisticsCollector::input, &stats_mbox);
+
+    // Swimming Pool -> Pool Controller (notify of exit)
+    swimming_pool.output.connect(PoolController::person_exited, &controller_mbox);
+
+    // Waiting Queue -> Swimming Pool (when space becomes available)
+    waiting_queue.output.connect(SwimmingPool::input, &pool_mbox);
+
+    // Initialize simulation
     let t0 = MonotonicTime::EPOCH;
     let mut sim_init = SimInit::new();
-    
-    // Add models to simulation and store addresses for later use
-    // Note that add_model returns the modified SimInit, not an address
-    sim_init = sim_init.add_model(source, source_mbox, "source");
-    // Store the name for later use with scheduler
 
-    sim_init = sim_init.add_model(smd_machine, smd_mbox, "smd_machine");
-    sim_init = sim_init.add_model(lot_bath_buffer, lot_bath_buffer_mbox, "lot_bath_buffer");
-    sim_init = sim_init.add_model(lot_bath, lot_bath_mbox, "lot_bath");
-    sim_init = sim_init.add_model(assembly_buffer, assembly_buffer_mbox, "assembly_buffer");
-    
-    for (i, (assembly_station, assembly_mbox)) in assembly_stations.into_iter().zip(assembly_mboxes).enumerate() {
-        sim_init = sim_init.add_model(assembly_station, assembly_mbox, &format!("assembly_station_{}", i));
-    }
-    
-    sim_init = sim_init.add_model(test_buffer, test_buffer_mbox, "test_buffer");
-    
-    for (i, (test_station, test_mbox)) in test_stations.into_iter().zip(test_mboxes).enumerate() {
-        sim_init = sim_init.add_model(test_station, test_mbox, &format!("test_station_{}", i));
-    }
-    
+    // Add models to simulation
+    sim_init = sim_init.add_model(person_source, source_mbox, "person_source");
+    sim_init = sim_init.add_model(swimming_pool, pool_mbox, "swimming_pool");
+    sim_init = sim_init.add_model(waiting_queue, queue_mbox, "waiting_queue");
+    sim_init = sim_init.add_model(pool_controller, controller_mbox, "pool_controller");
     sim_init = sim_init.add_model(statistics, stats_mbox, "statistics");
-    // Store the statistics model name for later
-
-    // ###################################################
-    // Running simulation
-    // ###################################################
 
     // Initialize and run simulation
     let (mut simulation, scheduler) = sim_init.init(t0)?;
 
-    simulation.process_event(ProductSource::start_generation, (), &source_address)?;
+    // Start person generation
+    simulation.process_event(PersonSource::start_generation, (), &source_address)?;
 
     println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
 
-    // Run the simulation until the specified time
-    simulation.step_until(t0 + Duration::from_secs(config.simulation.simulation_time * 60))?;
+    // Run simulation for the configured time
+    simulation.step_until(t0 + Duration::from_secs_f64(config.simulation.simulation_time * 60.0))?;
 
-    // Collect statistics
-    // println!("{}", statistics.print_statistics(config.simulation.simulation_time as f64));
+    // Print statistics
+    println!("{}", statistics.print_statistics(config.simulation.simulation_time));
     println!("Simulation completed successfully");
-    
+
     Ok(())
 }
