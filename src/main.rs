@@ -94,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start person generation
     simulation.process_event(PersonSource::start_generation, (), &source_address)?;
 
-    println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
+    //println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
 
     // Run simulation for the configured time
     simulation.step_until(t0 + Duration::from_secs_f64(config.simulation.simulation_time * 60.0))?;
