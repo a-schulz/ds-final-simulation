@@ -5,7 +5,7 @@ mod utils;
 
 use std::time::{Duration, Instant};
 use clap::Parser;
-use nexosim::ports::{EventQueue, EventSlot};
+use nexosim::ports::{EventQueue};
 use nexosim::simulation::{Mailbox, SimInit};
 use nexosim::time::MonotonicTime;
 
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     swimming_pool.output.connect(PoolController::person_exited, &controller_mbox);
     
     // Waiting Queue -> Swimming Pool (when space becomes available)
-    waiting_queue.output.connect(SwimmingPool::input, &pool_mbox);
+    waiting_queue.output.connect(PoolController::input, &controller_mbox);
 
     // Keep handles to the system output for the simulation.
     let output_queue = EventQueue::new();
@@ -92,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start person generation
     simulation.process_event(PersonSource::start_generation, (), &source_address)?;
 
-    //println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
+    println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
 
     // Run simulation for the configured time
     simulation.step_until(t0 + Duration::from_secs_f64(config.simulation.simulation_time * 60.0))?;
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Print statistics
     println!("Wall clock execution time: {:?}", real_start_time.elapsed());
     let output_reader = output_queue.into_reader();
-    let stats = calculate_statistics(output_reader);
+    let _stats = calculate_statistics(output_reader);
     println!("Simulation completed successfully");
 
     Ok(())
