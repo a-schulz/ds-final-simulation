@@ -8,3 +8,6 @@ swim_time_min = 30.0
 swim_time_max = 90.0
 
 simulation_time = 2400.0
+
+# Whether to enable debug logging or not
+debug_enabled = false

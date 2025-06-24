@@ -6,6 +6,7 @@ use rand_distr::Uniform;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::time::Duration;
+use crate::debug_println;
 
 // The main person entity that enters and leaves the swimming pool
 #[derive(Debug, Clone)]
@@ -40,10 +41,11 @@ pub struct PersonSource {
     pub swim_time_max: f64,
     pub rng: StdRng,
     pub next_id: u64,
+    pub debug_enabled: bool,
 }
 
 impl PersonSource {
-    pub fn new(arrival_min: f64, arrival_max: f64, swim_time_min: f64, swim_time_max: f64, seed: u64) -> Self {
+    pub fn new(arrival_min: f64, arrival_max: f64, swim_time_min: f64, swim_time_max: f64, debug_enabled: bool, seed: u64) -> Self {
         Self {
             output: Output::default(),
             arrival_min,
@@ -52,6 +54,7 @@ impl PersonSource {
             swim_time_max,
             rng: StdRng::seed_from_u64(seed),
             next_id: 0,
+            debug_enabled,
         }
     }
 
@@ -95,21 +98,26 @@ impl Model for PersonSource {}
 // Swimming pool model
 pub struct SwimmingPool {
     pub output: Output<Person>,
+    pub debug_enabled: bool,
 }
 
 impl SwimmingPool {
-    pub fn new() -> Self {
+    pub fn new(debug_enabled: bool) -> Self {
         Self {
             output: Output::default(),
+            debug_enabled,
         }
     }
 
-    pub fn input(&mut self, mut person: Person, cx: &mut Context<Self>) {
+    pub async fn input(&mut self, mut person: Person, cx: &mut Context<Self>) {
         let current_time = cx.time().as_secs() as u64;
 
         // Calculate wait time
         person.wait_time = current_time.saturating_sub(person.arrival_time);
         person.entry_time = current_time;
+
+        debug_println!(self.debug_enabled, "DEBUG: SwimmingPool - Person {} entered the pool with wait time {}s", 
+                      person.id, person.wait_time);
 
         // Schedule person to leave after swim time
         cx.schedule_event(
@@ -134,13 +142,15 @@ impl Model for SwimmingPool {}
 pub struct WaitingQueue {
     pub output: Output<Person>,
     pub queue: Vec<Person>,
+    pub debug_enabled: bool,
 }
 
 impl WaitingQueue {
-    pub fn new() -> Self {
+    pub fn new(debug_enabled: bool) -> Self {
         Self {
             output: Output::default(),
             queue: Vec::new(),
+            debug_enabled,
         }
     }
 
@@ -148,7 +158,8 @@ impl WaitingQueue {
         // Add person to queue
         let person_id = person.id;
         self.queue.push(person);
-        println!("DEBUG: WaitingQueue - Person {} added to queue. Queue length: {}", person_id, self.queue.len());
+        debug_println!(self.debug_enabled, "DEBUG: WaitingQueue - Person {} added to queue. Queue length: {}", 
+            person_id, self.queue.len());
     }
 
     // Called when someone leaves the pool
@@ -156,7 +167,8 @@ impl WaitingQueue {
         // Send the next person to the pool if there's anyone waiting
         if !self.queue.is_empty() {
             let person = self.queue.remove(0);
-            println!("DEBUG: WaitingQueue - Person {} left queue. Queue length: {}", person.id, self.queue.len());
+            debug_println!(self.debug_enabled, "DEBUG: WaitingQueue - Person {} left queue. Queue length: {}", 
+                person.id, self.queue.len());
             self.output.send(person).await;
         }
     }
@@ -171,16 +183,18 @@ pub struct PoolController {
     pub pool_notification: Output<()>,
     pub max_capacity: u64,
     pub current_count: u64,
+    pub debug_enabled: bool,
 }
 
 impl PoolController {
-    pub fn new(max_capacity: u64) -> Self {
+    pub fn new(max_capacity: u64, debug_enabled: bool) -> Self {
         Self {
             pool_output: Output::default(),
             queue_output: Output::default(),
             pool_notification: Output::default(),
             max_capacity,
             current_count: 0,
+            debug_enabled,
         }
     }
 
@@ -188,12 +202,12 @@ impl PoolController {
         if self.current_count < self.max_capacity {
             // Pool has space - send directly to pool
             self.current_count += 1;
-            println!("DEBUG: Controller - Sending person {} to pool. Current count: {}/{}",
+            debug_println!(self.debug_enabled, "DEBUG: Controller - Sending person {} to pool. Current count: {}/{}",
                 person.id, self.current_count, self.max_capacity);
             self.pool_output.send(person).await;
         } else {
             // Pool is full - send to waiting queue
-            println!("DEBUG: Controller - Pool full, sending person {} to queue. Current count: {}/{}",
+            debug_println!(self.debug_enabled, "DEBUG: Controller - Pool full, sending person {} to queue. Current count: {}/{}",
                 person.id, self.current_count, self.max_capacity);
             self.queue_output.send(person).await;
         }
@@ -202,7 +216,7 @@ impl PoolController {
     // When a person exits the pool -> notify the queue that space is available
     pub async fn person_exited(&mut self, person: Person) {
         self.current_count -= 1;
-        println!("DEBUG: Controller - Person {} exited, decremented count to {}/{}",
+        debug_println!(self.debug_enabled, "DEBUG: Controller - Person {} exited, decremented count to {}/{}",
                  person.id, self.current_count, self.max_capacity);
         // Notify queue that space is available
         self.pool_notification.send(()).await;

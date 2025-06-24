@@ -15,6 +15,13 @@ pub struct SimulationConfig {
     pub swim_time_min: f64,       // Minimum swimming time in minutes
     pub swim_time_max: f64,       // Maximum swimming time in minutes
     pub simulation_time: f64,     // Total simulation time in minutes
+    #[serde(default = "default_debug_enabled")]
+    pub debug_enabled: bool,      // Whether debug messages should be printed
+}
+
+// Default value for debug_enabled if not specified in config
+fn default_debug_enabled() -> bool {
+    false
 }
 
 impl Config {

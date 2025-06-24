@@ -54,3 +54,13 @@ pub fn calculate_statistics(output_reader: EventQueueReader<models::Person>) -> 
 
     stats
 }
+
+/// A macro for conditional debug printing that can be optimized out when disabled
+#[macro_export]
+macro_rules! debug_println {
+    ($debug_enabled:expr, $($arg:tt)*) => {
+        if $debug_enabled {
+            println!($($arg)*);
+        }
+    };
+}

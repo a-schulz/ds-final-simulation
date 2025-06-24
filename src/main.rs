@@ -32,18 +32,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_file(&args.config_file)?;
     println!("Loaded configuration from {}", args.config_file);
 
+    // Store debug flag
+    let debug_enabled = config.simulation.debug_enabled;
+
     // Instantiate models.
     let mut person_source = PersonSource::new(
         config.simulation.arrival_min,
         config.simulation.arrival_max,
         config.simulation.swim_time_min,
         config.simulation.swim_time_max,
+        debug_enabled,
         42 // seed
     );
 
-    let mut swimming_pool = SwimmingPool::new();
-    let mut waiting_queue = WaitingQueue::new();
-    let mut pool_controller = PoolController::new(config.simulation.max_swimmers);
+    let mut swimming_pool = SwimmingPool::new(debug_enabled);
+    let mut waiting_queue = WaitingQueue::new(debug_enabled);
+    let mut pool_controller = PoolController::new(config.simulation.max_swimmers, debug_enabled);
 
     // Instantiate mailboxes.
     let source_mbox = Mailbox::new();
@@ -85,15 +89,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     sim_init = sim_init.add_model(waiting_queue, queue_mbox, "waiting_queue");
     sim_init = sim_init.add_model(pool_controller, controller_mbox, "pool_controller");
 
+    println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
     let real_start_time = Instant::now();
     // Initialize and run simulation
     let (mut simulation, _scheduler) = sim_init.init(t0)?;
 
     // Start person generation
     simulation.process_event(PersonSource::start_generation, (), &source_address)?;
-
-    println!("Starting simulation for {} minutes...", config.simulation.simulation_time);
-
+    
     // Run simulation for the configured time
     simulation.step_until(t0 + Duration::from_secs_f64(config.simulation.simulation_time * 60.0))?;
 
