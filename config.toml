@@ -5,6 +5,6 @@ arrival_max = 8.0
 max_swimmers = 15
 
 swim_time_min = 30.0
-swim_time_max = 60.0
+swim_time_max = 90.0
 
 simulation_time = 2400.0

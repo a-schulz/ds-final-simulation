@@ -146,7 +146,9 @@ impl WaitingQueue {
 
     pub async fn input(&mut self, person: Person) {
         // Add person to queue
+        let person_id = person.id;
         self.queue.push(person);
+        println!("DEBUG: WaitingQueue - Person {} added to queue. Queue length: {}", person_id, self.queue.len());
     }
 
     // Called when someone leaves the pool
@@ -154,84 +156,13 @@ impl WaitingQueue {
         // Send the next person to the pool if there's anyone waiting
         if !self.queue.is_empty() {
             let person = self.queue.remove(0);
+            println!("DEBUG: WaitingQueue - Person {} left queue. Queue length: {}", person.id, self.queue.len());
             self.output.send(person).await;
         }
     }
 }
 
 impl Model for WaitingQueue {}
-
-// Statistics collector
-#[derive(Clone)]
-pub struct StatisticsCollector {
-    pub persons_processed: u64,
-    pub total_wait_time: u64,
-    pub total_swim_time: u64,
-    pub max_queue_length: usize,
-    pub max_wait_time: u64,
-}
-
-impl StatisticsCollector {
-    pub fn new() -> Self {
-        Self {
-            persons_processed: 0,
-            total_wait_time: 0,
-            total_swim_time: 0,
-            max_queue_length: 0,
-            max_wait_time: 0,
-        }
-    }
-
-    pub fn input(&mut self, person: Person, _: &mut Context<Self>) {
-        // Process completed person
-        self.persons_processed += 1;
-        self.total_wait_time += person.wait_time;
-
-        if let Some(exit_time) = person.exit_time {
-            let actual_swim_time = exit_time - person.entry_time;
-            self.total_swim_time += actual_swim_time;
-        }
-
-        self.max_wait_time = self.max_wait_time.max(person.wait_time);
-    }
-
-    // Use this somewhere in the simulation
-    pub fn update_queue_length(&mut self, length: usize) {
-        self.max_queue_length = self.max_queue_length.max(length);
-    }
-
-    pub fn print_statistics(&self, simulation_time: f64) -> String {
-        let avg_wait_time = if self.persons_processed > 0 {
-            self.total_wait_time as f64 / self.persons_processed as f64 / 60.0 // in minutes
-        } else {
-            0.0
-        };
-
-        let avg_swim_time = if self.persons_processed > 0 {
-            self.total_swim_time as f64 / self.persons_processed as f64 / 60.0 // in minutes
-        } else {
-            0.0
-        };
-
-        format!(
-            "Swimming Pool Simulation Statistics:\n\
-            - Total simulation time: {:.1} minutes\n\
-            - People processed: {}\n\
-            - Average wait time: {:.2} minutes\n\
-            - Maximum wait time: {:.2} minutes\n\
-            - Average swim time: {:.2} minutes\n\
-            - Maximum queue length: {}",
-            simulation_time,
-            self.persons_processed,
-            avg_wait_time,
-            self.max_wait_time as f64 / 60.0,
-            avg_swim_time,
-            self.max_queue_length
-        )
-    }
-}
-
-impl Model for StatisticsCollector {}
 
 // Pool controller that manages the swimming pool and waiting queue
 pub struct PoolController {
@@ -257,22 +188,22 @@ impl PoolController {
         if self.current_count < self.max_capacity {
             // Pool has space - send directly to pool
             self.current_count += 1;
-            /*println!("DEBUG: Controller - Sending person {} directly to pool. Current count: {}/{}",
-                person.id, self.current_count, self.max_capacity);*/
+            println!("DEBUG: Controller - Sending person {} to pool. Current count: {}/{}",
+                person.id, self.current_count, self.max_capacity);
             self.pool_output.send(person).await;
         } else {
             // Pool is full - send to waiting queue
-            /*println!("DEBUG: Controller - Pool full, sending person {} to queue. Current count: {}/{}",
-                person.id, self.current_count, self.max_capacity);*/
+            println!("DEBUG: Controller - Pool full, sending person {} to queue. Current count: {}/{}",
+                person.id, self.current_count, self.max_capacity);
             self.queue_output.send(person).await;
         }
     }
 
-    // When a person exits the pool
-    pub async fn person_exited(&mut self, _person: Person) {
+    // When a person exits the pool -> notify the queue that space is available
+    pub async fn person_exited(&mut self, person: Person) {
         self.current_count -= 1;
-       /*println!("DEBUG: Controller - Person {} exited, decremented count to {}/{}",
-            person.id, self.current_count, self.max_capacity);*/
+        println!("DEBUG: Controller - Person {} exited, decremented count to {}/{}",
+                 person.id, self.current_count, self.max_capacity);
         // Notify queue that space is available
         self.pool_notification.send(()).await;
     }
