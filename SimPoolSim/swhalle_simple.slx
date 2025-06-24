@@ -1,0 +1,54 @@
+//*****************************************************************************
+//      Module Schwimhalle - Demo T. Wiedemann - HTW Dresden 
+//      Version 2021 
+//****************************************************************************
+
+//	Imports...
+
+module Schwimmhalle1_Simple
+	{
+//	Class Definitions...
+//	Statement/Macro Definitions...
+//	Global_variables...
+	rn_stream				Ankunft, Service;				// independent random streams
+
+	procedure main()
+		{ 	control boolean             	Eingangstor_offen=TRUE;
+			int 				Hallenkapazitaet = 15;
+	control 	int				Anzahl_Schwimmer;
+			int 				Wartende;
+		     	int		       		Arbeitszeit = 5 * 8 * 60;	// five 8-hour shifts (in minutes)
+		fork {				
+	        	// Generierungsschleife für die Kunden durch 2. Main-Puck 
+		      while (time < Arbeitszeit)					// Simulation einer Woche bzw. Zeit wie angegeben
+			{
+			 	advance rv_uniform(Ankunft, 2.0, 8.0);      // Ankunft eines Schwimminteressierten 
+ 		       	fork {
+				++Wartende;
+				wait until (Eingangstor_offen and Anzahl_Schwimmer<Hallenkapazitaet);
+				--Wartende;
+				++Anzahl_Schwimmer;                             // Der Schwimmer betritt die Halle
+				advance rv_uniform(Service, 30, 60.0); 	   // Jetzt wird 0,5-1Stunde gebadet !!
+				--Anzahl_Schwimmer;			   // Der Schwimmer verläßt die Halle
+				terminate;
+				}
+ 				 print (Wartende,Anzahl_Schwimmer)   "Wartende: _ Anzahl Schwimmer: _\n";
+			}
+		}
+		// Zeitsteuerung der Eingangstür durch 1. Main-Puck : Öffnung zu jeden vollen Stunde !	
+                   
+                     while (time < Arbeitszeit)					// Simulation einer Woche bzw. Zeit wie angegeben
+  			  {                  
+				    Eingangstor_offen=TRUE;
+ 				    print (time)   "\nÖffne Eingangstor Eingangstor zum Zeitpunkt : _ ";
+				    advance 2;
+              		    Eingangstor_offen=FALSE;
+ 				    print (time)   "\nSchließe Eingangstor zum Zeitpunkt : _ ";
+				   advance 58;
+ 			 }
+	
+		    print (time)   "Fertig zur Zeit  : _ ";
+
+          }  // Ende Hauptprogramm
+
+}  // Ende Modul 

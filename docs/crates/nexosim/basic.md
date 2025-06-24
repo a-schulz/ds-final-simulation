@@ -24,7 +24,7 @@ Models can contain four kinds of ports:
     replier ports, which are similar to input ports but implement the ReplierFn trait and return a reply.
 
 Messages that are broadcast by an output port to an input port are referred to as events, while messages exchanged between requestor and replier ports are referred to as requests and replies.
-[nexosim_docs.md](nexosim_docs.md)
+[nexosim_docs.md](basic.md)
 Models must implement the Model trait. The main purpose of this trait is to allow models to specify a Model::init method that is guaranteed to run once and only once when the simulation is initialized, i.e. after all models have been connected but before the simulation starts.
 
 The Model::init methods has a default implementations, so models that do not require setup and initialization can simply implement the trait with a one-liner such as impl Model for MyModel {}.

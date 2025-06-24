@@ -13,7 +13,6 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use nexosim::model::{Context, Model};
 use nexosim::ports::Output;
-use nexosim::simulation::SimulationError;
 
 #[derive(Default)]
 pub struct Delay {
@@ -101,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Pick an arbitrary simulation start time and build the simulation.
     let t0 = MonotonicTime::EPOCH;
-    let (mut simu, scheduler) = SimInit::new()
+    let (mut simu, _scheduler) = SimInit::new()
         .add_model(multiplier1, multiplier1_mbox, "multiplier1")
         .add_model(multiplier2, multiplier2_mbox, "multiplier2")
         .add_model(delay1, delay1_mbox, "delay1")
