@@ -1,13 +1,13 @@
 [simulation]
 
-arrival_min = 2.0
-arrival_max = 8.0
-max_swimmers = 15
+arrival_min = 1.0
+arrival_max = 3.0
+max_swimmers = 50
 
-swim_time_min = 30.0
-swim_time_max = 90.0
+swim_time_min = 60.0
+swim_time_max = 120.0
 
-simulation_time = 2400.0
+simulation_time = 525600.0
 
 # Whether to enable debug logging or not
-debug_enabled = false
+debug_enabled = true
