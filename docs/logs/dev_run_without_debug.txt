@@ -1,0 +1,11 @@
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
+Running `target/debug/ds-smd-simulation`
+Loaded configuration from config.toml
+Starting simulation for 2400 minutes...
+Wall clock execution time: 58.384447ms
+Swimming Pool Simulation Statistics:
+- Total participants: 468
+- Average swim time: 59.94 minutes
+- Average wait time: 0.13 minutes
+- Maximum wait time: 8.27 minutes
+Simulation completed successfully

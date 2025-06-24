@@ -1,0 +1,7 @@
+Wall clock execution time: 82.163478ms
+Swimming Pool Simulation Statistics:
+- Total participants: 468
+- Average swim time: 59.94 minutes
+- Average wait time: 0.13 minutes
+- Maximum wait time: 8.27 minutes
+Simulation completed successfully

@@ -1,0 +1,21 @@
+DEBUG: Controller - Sending person 0 to pool. Current count: 1/5
+DEBUG: Controller - Sending person 1 to pool. Current count: 2/5
+DEBUG: Controller - Sending person 2 to pool. Current count: 3/5
+DEBUG: Controller - Sending person 3 to pool. Current count: 4/5
+DEBUG: Controller - Sending person 4 to pool. Current count: 5/5
+DEBUG: Controller - Pool full, sending person 5 to queue. Current count: 5/5
+DEBUG: WaitingQueue - Person 5 added to queue. Queue length: 1
+DEBUG: Controller - Pool full, sending person 6 to queue. Current count: 5/5
+DEBUG: WaitingQueue - Person 6 added to queue. Queue length: 2
+DEBUG: Controller - Pool full, sending person 7 to queue. Current count: 5/5
+DEBUG: WaitingQueue - Person 7 added to queue. Queue length: 3
+DEBUG: Controller - Pool full, sending person 8 to queue. Current count: 5/5
+DEBUG: WaitingQueue - Person 8 added to queue. Queue length: 4
+DEBUG: Controller - Pool full, sending person 9 to queue. Current count: 5/5
+DEBUG: WaitingQueue - Person 9 added to queue. Queue length: 5
+DEBUG: Controller - Pool full, sending person 10 to queue. Current count: 5/5
+DEBUG: WaitingQueue - Person 10 added to queue. Queue length: 6
+DEBUG: Controller - Person 4 exited, decremented count to 4/5
+DEBUG: WaitingQueue - Person 5 left queue. Queue length: 5
+DEBUG: Controller - Sending person 5 to pool. Current count: 5/5
+DEBUG: Controller - Pool full, sending person 11 to queue. Current count: 5/5

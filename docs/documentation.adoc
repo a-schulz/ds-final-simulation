@@ -1,111 +1,226 @@
-Simulation with debug statements (dev build)
+= Abschlussprojekt "Diskrete Simulation" SS2025
+:toc: left
+:toclevels: 3
+:sectnums:
+:source-highlighter: highlight.js
+:icons: font
+:logo: pi/logo/logo_bpa.svg
+:toc-title: Inhaltsübersicht
+:pdf-page-size: A4
+:figure-caption: Abbildung
+:table-caption: Tabelle
+:toc: preamble
+
+Modul: Diskrete Simulation
+
+Studiengang: Angewandte Informatik
+
+Professor: Prof. T. Wiedemann
+
+Author: Alexander Schulz (alexander.schulz2@stud.htw-dresden.de)
+
+<<<<
+
+== Einleitung
+
+In diesem Abschlussprojekt für das Modul "Diskrete Simulation" wurde eine Simulation eines Schwimmbadsystems implementiert. Das Projekt demonstriert die Anwendung von Konzepten der diskreten Simulation zur Modellierung und Analyse eines Systems mit beschränkter Kapazität und Steuerungselementen. Ziel des Projektes ist es, die Eignung und Performance von Nexosim, einem Rust-basierten Framework für diskrete Ereignissimulationen, zu evaluieren.
+
+
+== Auswahl der Simulationsumgebung
+
+Bei der Auswahl einer geeigneten Simulationsumgebung in Rust wurden mehrere Crates verglichen und bewertet. Die Bewertungskriterien umfassten:
+
+- Aktive Weiterentwicklung des Crates
+- Qualität der Dokumentation
+- Performance-Eigenschaften
+- Verbreitungsgrad (Anzahl der Downloads auf crates.io)
+
+=== Verglichene Crates
+
+==== Nexosim
+image::img/Pasted image 20250616072832.png[Nexosim]
+
+==== Desim
+[Link: desim - Rust](https://docs.rs/desim/latest/desim/)
+
+image::img/Pasted image 20250616072813.png[Desim]
+
+Hinweis: Nexosim hieß vorher Asynchronix und wird unter diesem Namen noch in vielen Projekten verwendet, was die hohe Anzahl an Downloads erklärt.
+
+==== SimRS
+[Link: SimRS · SimRS](https://simrs.com/)
+
+image::img/Pasted image 20250616072755.png[SimRS]
+
+=== Begründung für die Auswahl von Nexosim
+
+Nach Abwägung der verschiedenen Optionen fiel die Wahl auf Nexosim. Ausschlaggebend waren:
+
+- Umfangreiche und verständliche Dokumentation (Beispiele vorhanden)
+- Aktive Weiterentwicklung mit regelmäßigen Updates
+- Vorteilhafte Performance-Eigenschaften
+- Wird bereits bei anderen Projekten verwendet (Downloads auf crates.io)
+
+=== NeXosim Framework: Kernkomponenten und Paradigmen
+_(Übersetzung und Zusammenfassung der Projekt-README)_
+
+
+NeXosim ist ein hochoptimiertes Framework für diskrete Ereignissimulationen in Rust, das durch seinen komponentenorientierten Ansatz und eine asynchrone Implementierung besticht. Das Framework unterstützt sowohl einfache Simulationen als auch komplexe Simulationsszenarien mit zeitgesteuerten Zustandsautomaten.
+
+==== Kernkomponenten von NeXosim
+
+1. **Modelle** (Models): Die grundlegenden Bausteine einer Simulation, die als isolierte Entitäten mit definierten Ein- und Ausgängen fungieren und durch Ereignisse kommunizieren.
+
+2. **Mailboxen** (Mailboxes): Empfangen Nachrichten für ein bestimmtes Modell und fungieren als Schnittstelle für den asynchronen Nachrichtenaustausch.
+
+3. **Ports**: Typisierte Ein- und Ausgänge für Modelle:
+- `Output<T>`: Sendet Ereignisse an verbundene Modelle
+- `EventSlot<T>`: Empfängt Ereignisse für weitere Verarbeitung
+
+4. **Kontext** (Context): Ermöglicht Modellen, Ereignisse zu planen und auf Ressourcen zuzugreifen.
+
+5. **Scheduler**: Verwaltet die Ereignisreihenfolge und den zeitlichen Fortschritt der Simulation.
+
+==== Zentrale Paradigmen
+
+==== Aktormodell
+NeXosim implementiert das Aktormodell, bei dem jedes Simulationsmodell als eigenständiger Aktor fungiert, der seinen internen Zustand verwaltet und über Nachrichtenaustausch mit anderen Aktoren kommuniziert.
+
+==== Component-Flow Architecture
+Die Architektur ähnelt dem Flow-Based Programming (FBP), wobei Modelle durch definierte Verbindungen miteinander kommunizieren, was eine klare Trennung der Komponenten und eine übersichtliche Systemstruktur ermöglicht.
+
+==== Diskrete Ereignissimulation
+Die Simulation schreitet in diskreten Zeitschritten voran. Der Scheduler wählt nach Abschluss der Berechnungen für den aktuellen Zeitpunkt den nächsten Zeitpunkt (Next Event Increment), zu dem Ereignisse geplant sind.
+
+==== Parallele Ausführung
+NeXosim nutzt Rusts Unterstützung für Multithreading und asynchrone Programmierung, um Simulationsmodelle effizient parallel auszuführen, wobei die erforderliche Synchronisierung transparent vom Simulator gehandhabt wird.
+
+Weitere Informationen und Dokumentation finden Sie unter:
+
+- [GitHub Repository](https://github.com/asynchronics/nexosim)
+- [API-Dokumentation](https://docs.rs/nexosim)
+- [Crates.io Seite](https://crates.io/crates/nexosim)
+
+Die modulare Struktur und die klaren Schnittstellen machen NeXosim zu einer leistungsstarken Wahl für die Modellierung komplexer Systeme wie das in diesem Projekt implementierte Schwimmbadsystem.
+
+== Systemanalyse und Abstraktion
+
+=== Problemstellung
+
+Die Aufgabe bestand in der Modellierung eines Schwimmbadsystems, bei dem die maximale Belegung überwacht und gesteuert werden muss. Personen betreten und verlassen das Schwimmbad, wobei die Gesamtkapazität nicht überschritten werden darf.
+
+=== Abstraktion des Systems
+
+Das Schwimmbadsystem wurde auf folgende Kernelemente abstrahiert:
+
+- Eingangsbereich (PersonSource)
+- Warteschlange, falls das Schwimmbad belegt ist (WaitingQueue)
+- Schwimmbereich mit begrenzter Kapazität (SwimmingPool)
+- Steuerungseinheit (PoolController) zur Überwachung der Belegung
+
+Diese Abstraktion ermöglicht eine übersichtliche Modellierung des Systems und erlaubt die Simulation verschiedener Belegungsszenarien.
+
+== Konzeption
+
+Die Konzeption des Simulationsmodells folgte einem strukturierten Ansatz. Zunächst wurden Basismodelle für die verschiedenen Komponenten des Systems entwickelt. Anschließend wurde ein Controller eingeführt, der die maximale Belegung im Schwimmbad überwacht und steuert.
+
+image::img/model_structure.png[Model Structure]
+
+Die Modellstruktur zeigt die Interaktion zwischen den verschiedenen Komponenten und verdeutlicht den Fluss der Personen durch das System. Der Controller übernimmt dabei eine zentrale Rolle bei der Steuerung des Zugangs zum Schwimmbad.
+
+== Implementierung
+
+Alle Simulationen verwenden einen festen Seed, um reproduzierbare Ergebnisse zu gewährleisten, was besonders für Tests und Performance-Evaluationen wichtig ist.
+
+=== Grundlegende Struktur
+
+Die Implementierung folgt dem Model-Connect-Event-Prinzip:
+
+1. **Instanz (Instance)**: Repräsentiert ein Modell in der Simulation
+2. **Connect**: Verbindet verschiedene Modelle miteinander
+3. **Events**: Werden von Instanzen ausgelöst und an die verbundenen Mailboxen weitergeleitet
+
+=== Performance-Tests
+
+Zur Evaluierung der Performance wurden verschiedene Testläufe durchgeführt:
+
+==== Simulation mit Debug-Ausgaben (Development-Build)
 [source,text]
 ----
-Wall clock execution time: 82.163478ms
-Swimming Pool Simulation Statistics:
-- Total participants: 468
-- Average swim time: 59.94 minutes
-- Average wait time: 0.13 minutes
-- Maximum wait time: 8.27 minutes
-Simulation completed successfully
+include::logs/dev_run_with_debug.txt[]
 ----
 
-Simulation without debug statements (dev build)
+==== Simulation ohne Debug-Ausgaben (Development-Build)
 [source,text]
 ----
-Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
-Running `target/debug/ds-smd-simulation`
-Loaded configuration from config.toml
-Starting simulation for 2400 minutes...
-Wall clock execution time: 58.384447ms
-Swimming Pool Simulation Statistics:
-- Total participants: 468
-- Average swim time: 59.94 minutes
-- Average wait time: 0.13 minutes
-- Maximum wait time: 8.27 minutes
-Simulation completed successfully
+include::logs/dev_run_without_debug.txt[]
 ----
 
-Simulation with debug statements (release build)
+==== Simulation mit Debug-Ausgaben (Release-Build)
 [source, text]
 ----
-Wall clock execution time: 27.264038ms
-Swimming Pool Simulation Statistics:
-- Total participants: 468
-- Average swim time: 59.94 minutes
-- Average wait time: 0.13 minutes
-- Maximum wait time: 8.27 minutes
-Simulation completed successfully
+include::logs/release_run_with_debug.txt[]
 ----
 
-Simulation without debug statements (release build)
+==== Simulation ohne Debug-Ausgaben (Release-Build)
 [source,text]
 ----
-Finished `release` profile [optimized] target(s) in 0.07s
-Running `target/release/ds-smd-simulation`
-Loaded configuration from config.toml
-Starting simulation for 2400 minutes...
-Wall clock execution time: 7.226317ms
-Swimming Pool Simulation Statistics:
-- Total participants: 468
-- Average swim time: 59.94 minutes
-- Average wait time: 0.13 minutes
-- Maximum wait time: 8.27 minutes
-Simulation completed successfully
+include::logs/release_run_without_debug.txt[]
 ----
 
-Instance
-connect
-on event fired by the instance
--> output gets directed to the specified mailbox
+Die Performance-Tests zeigen, dass Nexosim in der Lage ist, auch komplexe Simulationsszenarien effizient zu verarbeiten. Die Release-Builds bieten eine signifikante Performance-Steigerung im Vergleich zu den Development-Builds, insbesondere bei deaktivierten Debug-Ausgaben mit nur **7.22 ms**.
+
+Für weitere Tests können die Simulationen mit angepassten Parametern (`config.toml`) durchgeführt werden.
 
 
+== Herausforderungen und Erfahrungen
 
-Fehlermeldungen teilweise nicht wirklich verständlich
+=== Herausforderungen bei der Implementierung
 
+Die Arbeit mit Nexosim wies einige Herausforderungen auf:
+
+1. **Fehlermeldungen**: Die Fehlermeldungen waren teilweise schwer verständlich (für unerfahrende Rust-Entwickler), wie das folgende Beispiel zeigt:
++
 ----
 70 |     swimming_pool.output.connect(PoolController::person_exited, &controller_mbox);
    |                          ------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `for<'a> InputFn<'a, _, Person, _>` is not implemented for fn item `for<'a> fn(&'a mut PoolController) -> impl Future<Output = ()> {PoolController::person_exited}`
-
 ----
 
+2. **Modell-Komplexität**: Die Modelle können schnell unübersichtlich werden, auch wenn eine gute Strukturierung prinzipiell möglich ist.
 
-Model kann schnell unübersichtlich werden, aber prinzipiell kann man es gut strukturieren
+3. **Event-Nachverfolgung**: Da Events in Modellen definiert und später in der Main-Funktion verbunden werden, erfordert das Nachverfolgen des Programflusses ein Springen zwischen verschiedenen Codeteilen.
++
+image::img/tracking_events.png[Tracking Events Diagram]
 
-Da man in den Modellen nur events definiert und dann später in der Main verbindet, muss man ganz schön hin und her springen um dzu sehen wo man ankommt
+4. **Monitoring**: Die Integration von Monitoring-Funktionalitäten ist nicht trivial, aber durchaus machbar unter Verwendung einer `EventQueue`.
 
-Eine Möglichkeit bei jeder Funktion in den Modellen einen Breakpoint zu setzen und dann in der Main zu schauen wo es hingeht, ist aber auch nicht so schlecht
+=== Bewertung und Erfahrungen
 
-image::tracking_events.png[Tracking Events Diagram, width=80%, align=center]
+==== Modellierungskomfort
+Bei vorhandenen Rust-Kenntnissen ist die Arbeit mit Nexosim vergleichsweise einfach, erfordert jedoch eine gewisse Einarbeitungszeit. Die Lernkurve ist vorhanden, aber zu bewältigen.
 
-Performance ist gut
+==== Flexibilität
+Das Framework bietet eine hohe Flexibilität bei der Modellierung verschiedener Systeme. Die aktorbasierte Architektur ermöglicht eine klare Trennung der Komponenten und einen übersichtlichen Nachrichtenaustausch.
 
-Einbauen von Monitoring ist nicht wirklich trivial, aber machbar
+==== Funktionalität
+Die Funktionalität von Nexosim ist für die Anforderungen einer diskreten Simulation gut geeignet. Es bietet alle notwendigen Funktionen für die Modellierung, Simulation. Für die Auswertung der Ergebnisse müssen jedoch zusätzliche Funktionen geschrieben werden.
 
-Lernkurve auf jeden Fall vorhanden
+==== Performance
+Die Performance ist sehr gut und eignet sich vorraussichtlich auch für komplexere Simulationsmodelle.
 
+==== Eignung für Studierende
+Nexosim ist für Studierende geeignet, wenn grundlegende Kenntnisse in Rust vorhanden sind. Die Dokumentation und die vorhandenen Beispiele erleichtern den Einstieg.
 
-Some logs:
+== Fazit und Ausblick
+
+Die Implementierung des Schwimmbadsystems mit Nexosim hat gezeigt, dass das Framework gut für die diskrete Simulation komplexer Systeme geeignet ist. Die Performance ist überzeugend und die Modellierungsmöglichkeiten sind vielseitig.
+
+Für zukünftige Projekte könnte eine verbesserte Visualisierung der Simulationsergebnisse sowie eine vereinfachte Möglichkeit zum Monitoring von Zustandsänderungen sinnvoll sein.
+
+== Anhang
+
+=== Logging der Warteschlange
+[source,text]
 ----
-DEBUG: Controller - Sending person 0 to pool. Current count: 1/5
-DEBUG: Controller - Sending person 1 to pool. Current count: 2/5
-DEBUG: Controller - Sending person 2 to pool. Current count: 3/5
-DEBUG: Controller - Sending person 3 to pool. Current count: 4/5
-DEBUG: Controller - Sending person 4 to pool. Current count: 5/5
-DEBUG: Controller - Pool full, sending person 5 to queue. Current count: 5/5
-DEBUG: WaitingQueue - Person 5 added to queue. Queue length: 1
-DEBUG: Controller - Pool full, sending person 6 to queue. Current count: 5/5
-DEBUG: WaitingQueue - Person 6 added to queue. Queue length: 2
-DEBUG: Controller - Pool full, sending person 7 to queue. Current count: 5/5
-DEBUG: WaitingQueue - Person 7 added to queue. Queue length: 3
-DEBUG: Controller - Pool full, sending person 8 to queue. Current count: 5/5
-DEBUG: WaitingQueue - Person 8 added to queue. Queue length: 4
-DEBUG: Controller - Pool full, sending person 9 to queue. Current count: 5/5
-DEBUG: WaitingQueue - Person 9 added to queue. Queue length: 5
-DEBUG: Controller - Pool full, sending person 10 to queue. Current count: 5/5
-DEBUG: WaitingQueue - Person 10 added to queue. Queue length: 6
-DEBUG: Controller - Person 4 exited, decremented count to 4/5
-DEBUG: WaitingQueue - Person 5 left queue. Queue length: 5
-DEBUG: Controller - Sending person 5 to pool. Current count: 5/5
-DEBUG: Controller - Pool full, sending person 11 to queue. Current count: 5/5
+include::logs/queue_logic.txt[]
 ----
