@@ -12,7 +12,7 @@ A simple example demonstrating the basic usage of the nexosim simulation framewo
 ### SimPoolSim
 A simulation of a swimming pool with capacity constraints. Models visitor arrivals, time spent in the pool, and waiting queue behavior when the pool reaches maximum capacity.
 
-[View SimPoolSim details](./SimPoolSim/README.md)
+[View SwimPoolSim details](SwimPoolSim/README.md)
 
 ## Running the Simulations
 
