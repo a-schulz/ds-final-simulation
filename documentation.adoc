@@ -1,46 +1,56 @@
-Simulation with println statements (dev build)
+Simulation with debug statements (dev build)
 [source,text]
 ----
-DEBUG: Person 474 entered pool. Current count: 9/15
-DEBUG: Person 465 exited pool after 47.416666666666664 minutes. Current count: 8/15
-DEBUG: Controller - Person 465 exited, decremented count to 8/15
-DEBUG: Person 468 exited pool after 32.7 minutes. Current count: 7/15
-DEBUG: Controller - Person 468 exited, decremented count to 7/15
-DEBUG: Controller - Sending person 475 directly to pool. Current count: 8/15
-DEBUG: Person 475 entered pool. Current count: 8/15
-DEBUG: Controller - Sending person 476 directly to pool. Current count: 9/15
-DEBUG: Person 476 entered pool. Current count: 9/15
-DEBUG: Controller - Sending person 477 directly to pool. Current count: 10/15
-DEBUG: Person 477 entered pool. Current count: 10/15
-DEBUG: Controller - Sending person 478 directly to pool. Current count: 11/15
-DEBUG: Person 478 entered pool. Current count: 11/15
-DEBUG: Person 470 exited pool after 34.583333333333336 minutes. Current count: 10/15
-DEBUG: Controller - Person 470 exited, decremented count to 10/15
-DEBUG: Person 467 exited pool after 57.8 minutes. Current count: 9/15
-DEBUG: Controller - Person 467 exited, decremented count to 9/15
-DEBUG: Controller - Sending person 479 directly to pool. Current count: 10/15
-DEBUG: Person 479 entered pool. Current count: 10/15
-Wall clock execution time: 127.871258ms
-----
-
-Simulation without println statements (dev build)
-[source,text]
-----
-Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
-Running `target/debug/ds-smd-simulation`
-Loaded configuration from config.toml
-Wall clock execution time: 25.690053ms
+Wall clock execution time: 82.163478ms
+Swimming Pool Simulation Statistics:
+- Total participants: 468
+- Average swim time: 59.94 minutes
+- Average wait time: 0.13 minutes
+- Maximum wait time: 8.27 minutes
 Simulation completed successfully
 ----
 
-
-Simulation without println statements (release build)
+Simulation without debug statements (dev build)
 [source,text]
 ----
-Finished `release` profile [optimized] target(s) in 0.05s
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
+Running `target/debug/ds-smd-simulation`
+Loaded configuration from config.toml
+Starting simulation for 2400 minutes...
+Wall clock execution time: 58.384447ms
+Swimming Pool Simulation Statistics:
+- Total participants: 468
+- Average swim time: 59.94 minutes
+- Average wait time: 0.13 minutes
+- Maximum wait time: 8.27 minutes
+Simulation completed successfully
+----
+
+Simulation with debug statements (release build)
+[source, text]
+----
+Wall clock execution time: 27.264038ms
+Swimming Pool Simulation Statistics:
+- Total participants: 468
+- Average swim time: 59.94 minutes
+- Average wait time: 0.13 minutes
+- Maximum wait time: 8.27 minutes
+Simulation completed successfully
+----
+
+Simulation without debug statements (release build)
+[source,text]
+----
+Finished `release` profile [optimized] target(s) in 0.07s
 Running `target/release/ds-smd-simulation`
 Loaded configuration from config.toml
-Wall clock execution time: 8.205446ms
+Starting simulation for 2400 minutes...
+Wall clock execution time: 7.226317ms
+Swimming Pool Simulation Statistics:
+- Total participants: 468
+- Average swim time: 59.94 minutes
+- Average wait time: 0.13 minutes
+- Maximum wait time: 8.27 minutes
 Simulation completed successfully
 ----
 
