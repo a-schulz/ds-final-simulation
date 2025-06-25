@@ -142,7 +142,25 @@ Die Implementierung folgt dem Model-Connect-Event-Prinzip:
 
 === Performance-Tests
 
-Zur Evaluierung der Performance wurden verschiedene Testläufe durchgeführt:
+Zur Evaluierung der Performance wurden verschiedene Testläufe durchgeführt.
+Dabei wurde die folgende Konfiguration verwendet:
+
+[source,toml]
+----
+[simulation]
+
+arrival_min = 2.0
+arrival_max = 8.0
+
+max_swimmers = 15
+
+swim_time_min = 30.0
+swim_time_max = 90.0
+
+simulation_time = 2400.0
+
+debug_enabled = false
+----
 
 ==== Simulation mit Debug-Ausgaben (Development-Build)
 [source,text]
